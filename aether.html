@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AETHER — The AI Operating Layer</title>
+<meta name="description" content="Aether deploys autonomous agents across your stack — triaging, drafting, shipping — while your team focuses on what only humans can do.">
+<meta property="og:title" content="AETHER — The AI Operating Layer">
+<meta property="og:description" content="Autonomous agents for teams that move at the speed of thought.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◆</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
+<style>
+/* ============ TOKENS & RESET ============ */
+:root{
+  --bg:#050507;
+  --bg2:#0a0a11;
+  --ink:#f2f2f6;
+  --mut:rgba(233,233,244,.55);
+  --dim:rgba(233,233,244,.34);
+  --line:rgba(255,255,255,.08);
+  --line2:rgba(255,255,255,.14);
+  --glass:rgba(255,255,255,.035);
+  --v:#7c5cff;
+  --c:#3ad6ff;
+  --m:#ff4ecd;
+  --grad:linear-gradient(100deg,var(--v),var(--c) 55%,var(--m));
+  --r:20px;
+  --ease:cubic-bezier(.22,1,.36,1);
+  --serif:'Instrument Serif',Georgia,serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:auto}
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+  overflow-x:hidden;
+}
+::selection{background:var(--v);color:#fff}
+a{color:inherit;text-decoration:none}
+button{font:inherit;border:none;background:none;color:inherit;cursor:pointer}
+img,svg,canvas{display:block;max-width:100%}
+.serif{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.01em}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* film grain */
+body::after{
+  content:"";position:fixed;inset:-50%;z-index:9990;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 9s steps(10) infinite;
+}
+@keyframes grain{
+  0%,100%{transform:translate(0,0)}10%{transform:translate(-4%,-6%)}30%{transform:translate(5%,-3%)}
+  50%{transform:translate(-6%,4%)}70%{transform:translate(4%,6%)}90%{transform:translate(-3%,2%)}
+}
+
+/* ============ SCROLL PROGRESS ============ */
+.progress{position:fixed;top:0;left:0;height:2px;width:100%;z-index:9980;transform-origin:0 50%;transform:scaleX(0);background:var(--grad)}
+
+/* ============ CUSTOM CURSOR ============ */
+.cursor-dot,.cursor-ring{position:fixed;top:0;left:0;z-index:9999;pointer-events:none;border-radius:50%;transform:translate(-50%,-50%)}
+.cursor-dot{width:6px;height:6px;background:var(--ink)}
+.cursor-ring{
+  width:36px;height:36px;border:1px solid rgba(255,255,255,.35);
+  transition:width .35s var(--ease),height .35s var(--ease),border-color .35s,background .35s;
+}
+.cursor-ring.is-hover{width:64px;height:64px;border-color:rgba(124,92,255,.9);background:rgba(124,92,255,.08)}
+.cursor-ring.is-hover .cursor-label{opacity:1}
+@media (hover:none),(max-width:900px){.cursor-dot,.cursor-ring{display:none}}
+
+/* ============ PRELOADER ============ */
+.preloader{position:fixed;inset:0;z-index:10000;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:28px}
+.preloader .mark{width:52px;height:52px;position:relative}
+.preloader .mark svg{width:100%;height:100%;animation:spin 3.2s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.preloader .count{
+  font-size:13px;letter-spacing:.32em;color:var(--mut);font-weight:500;
+  font-variant-numeric:tabular-nums;text-transform:uppercase;
+}
+.preloader .bar{width:180px;height:1px;background:var(--line);overflow:hidden}
+.preloader .bar i{display:block;height:100%;width:0%;background:var(--grad)}
+
+/* ============ NAV ============ */
+.nav{
+  position:fixed;top:0;left:0;right:0;z-index:9000;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:22px clamp(20px,4vw,56px);
+  transition:transform .5s var(--ease),padding .5s var(--ease),background .5s,border-color .5s,backdrop-filter .5s;
+  border-bottom:1px solid transparent;
+}
+.nav.is-scrolled{
+  padding:14px clamp(20px,4vw,56px);
+  background:rgba(6,6,10,.55);
+  backdrop-filter:blur(18px) saturate(160%);
+  -webkit-backdrop-filter:blur(18px) saturate(160%);
+  border-color:var(--line);
+}
+.nav.is-hidden{transform:translateY(-110%)}
+.nav .logo{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.24em;font-size:14px}
+.nav .logo svg{width:22px;height:22px}
+.nav .links{display:flex;gap:6px;align-items:center;padding:6px;border-radius:100px;border:1px solid var(--line);background:rgba(255,255,255,.02)}
+.nav .links a{
+  padding:8px 16px;border-radius:100px;font-size:13.5px;font-weight:500;color:var(--mut);
+  transition:color .3s,background .3s;position:relative;
+}
+.nav .links a:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+.nav .right{display:flex;align-items:center;gap:18px}
+.nav .right .signin{font-size:13.5px;font-weight:500;color:var(--mut);transition:color .3s}
+.nav .right .signin:hover{color:var(--ink)}
+@media (max-width:900px){.nav .links,.nav .right .signin{display:none}}
+
+/* buttons */
+.btn{
+  position:relative;display:inline-flex;align-items:center;gap:10px;
+  padding:14px 28px;border-radius:100px;font-size:14.5px;font-weight:600;
+  overflow:hidden;isolation:isolate;white-space:nowrap;
+  transition:transform .4s var(--ease),box-shadow .4s;
+  will-change:transform;
+}
+.btn .arr{transition:transform .35s var(--ease)}
+.btn:hover .arr{transform:translateX(4px)}
+.btn-primary{background:var(--ink);color:#0a0a0f}
+.btn-primary::before{
+  content:"";position:absolute;inset:0;z-index:-1;background:var(--grad);
+  opacity:0;transition:opacity .4s;
+}
+.btn-primary:hover{color:#fff;box-shadow:0 12px 44px -8px rgba(124,92,255,.55)}
+.btn-primary:hover::before{opacity:1}
+.btn-ghost{border:1px solid var(--line2);color:var(--ink);background:rgba(255,255,255,.02)}
+.btn-ghost:hover{border-color:rgba(255,255,255,.32);background:rgba(255,255,255,.05)}
+.btn-sm{padding:10px 20px;font-size:13.5px}
+
+/* ============ HERO ============ */
+.hero{position:relative;min-height:100svh;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#webgl{position:absolute;inset:0;z-index:1}
+.hero .halo{
+  position:absolute;z-index:0;left:50%;top:42%;width:min(1100px,120vw);aspect-ratio:1;
+  transform:translate(-50%,-50%);pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 50%,rgba(124,92,255,.22),transparent 55%),
+    radial-gradient(circle at 62% 38%,rgba(58,214,255,.12),transparent 50%),
+    radial-gradient(circle at 40% 60%,rgba(255,78,205,.08),transparent 55%);
+  filter:blur(20px);
+}
+.hero .grid-floor{
+  position:absolute;z-index:0;left:50%;bottom:-6%;width:160vw;height:44vh;
+  transform:translateX(-50%) perspective(700px) rotateX(66deg);transform-origin:50% 100%;
+  background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);
+  background-size:56px 56px;
+  -webkit-mask-image:radial-gradient(ellipse 60% 90% at 50% 100%,#000 30%,transparent 75%);
+  mask-image:radial-gradient(ellipse 60% 90% at 50% 100%,#000 30%,transparent 75%);
+}
+.hero-inner{position:relative;z-index:2;text-align:center;padding:120px 24px 80px;max-width:1080px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:10px;padding:8px 18px 8px 10px;border-radius:100px;
+  border:1px solid var(--line2);background:rgba(255,255,255,.04);
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  font-size:12.5px;font-weight:500;letter-spacing:.08em;color:var(--mut);text-transform:uppercase;
+}
+.eyebrow .tag{padding:3px 10px;border-radius:100px;background:var(--grad);color:#fff;font-size:10.5px;font-weight:700;letter-spacing:.14em}
+.hero h1{
+  margin:34px 0 0;font-weight:700;letter-spacing:-.035em;line-height:1.02;
+  font-size:clamp(48px,8.6vw,118px);
+}
+.hero h1 .line{display:block;overflow:hidden}
+.hero h1 .word{display:inline-block;transform:translateY(115%);will-change:transform}
+.hero .sub{
+  margin:30px auto 0;max-width:560px;font-size:clamp(16px,1.6vw,19px);color:var(--mut);line-height:1.65;
+}
+.hero .cta-row{margin-top:44px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.hero .meta-row{
+  margin-top:56px;display:flex;gap:28px;justify-content:center;flex-wrap:wrap;
+  font-size:12.5px;color:var(--dim);letter-spacing:.05em;
+}
+.hero .meta-row span{display:flex;align-items:center;gap:8px}
+.hero .meta-row i{width:5px;height:5px;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c)}
+/* floating chips */
+.chip{
+  position:absolute;z-index:2;display:flex;align-items:center;gap:10px;
+  padding:12px 18px;border-radius:16px;border:1px solid var(--line2);
+  background:rgba(14,14,22,.55);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  font-size:12.5px;font-weight:500;color:var(--mut);
+  box-shadow:0 20px 60px -20px rgba(0,0,0,.8);
+  will-change:transform;
+}
+.chip b{color:var(--ink);font-weight:600}
+.chip .dot{width:7px;height:7px;border-radius:50%}
+.chip-1{top:26%;left:7%}
+.chip-2{top:38%;right:6%}
+.chip-3{bottom:16%;left:13%}
+@media (max-width:1100px){.chip{display:none}}
+.scroll-cue{
+  position:absolute;bottom:28px;left:50%;transform:translateX(-50%);z-index:2;
+  display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--dim);
+  font-size:10.5px;letter-spacing:.3em;text-transform:uppercase;
+}
+.scroll-cue .wheel{width:1px;height:44px;background:var(--line2);position:relative;overflow:hidden}
+.scroll-cue .wheel::after{
+  content:"";position:absolute;left:0;top:-40%;width:100%;height:40%;
+  background:var(--grad);animation:cue 2s var(--ease) infinite;
+}
+@keyframes cue{to{top:120%}}
+/* ============ SHARED SECTION ============ */
+.section{position:relative;padding:clamp(90px,12vw,170px) clamp(20px,5vw,72px)}
+.wrap{max-width:1240px;margin:0 auto;position:relative}
+.sec-head{max-width:760px;margin-bottom:clamp(48px,6vw,84px)}
+.sec-head.center{margin-left:auto;margin-right:auto;text-align:center}
+.kicker{
+  display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;
+  letter-spacing:.28em;text-transform:uppercase;color:var(--dim);margin-bottom:22px;
+}
+.kicker::before{content:"";width:24px;height:1px;background:var(--grad)}
+.sec-head.center .kicker::after{content:"";width:24px;height:1px;background:var(--grad)}
+.h2{font-size:clamp(34px,4.6vw,60px);font-weight:700;letter-spacing:-.03em;line-height:1.08}
+.sec-head p{margin-top:20px;color:var(--mut);font-size:clamp(15.5px,1.4vw,18px);max-width:600px}
+.sec-head.center p{margin-left:auto;margin-right:auto}
+.reveal{opacity:0;transform:translateY(46px);will-change:transform,opacity}
+[data-clip]{clip-path:inset(0 0 100% 0)}
+
+/* ============ LOGO MARQUEE ============ */
+.logos{padding:56px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);position:relative;background:rgba(255,255,255,.012)}
+.logos .label{text-align:center;font-size:11.5px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);margin-bottom:34px}
+.marquee{overflow:hidden;position:relative;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+}
+.marquee .track{display:flex;gap:0;width:max-content;animation:marq 34s linear infinite}
+.marquee:hover .track{animation-play-state:paused}
+@keyframes marq{to{transform:translateX(-50%)}}
+.logos .item{
+  padding:0 44px;font-size:20px;color:var(--dim);white-space:nowrap;font-weight:700;
+  letter-spacing:.06em;display:flex;align-items:center;gap:10px;
+  transition:color .4s;filter:grayscale(1);
+}
+.logos .item:hover{color:var(--mut)}
+.logos .item.thin{font-weight:400;font-family:var(--serif);font-style:italic;letter-spacing:0;font-size:23px}
+.logos .item.mono{font-family:ui-monospace,monospace;font-weight:500;letter-spacing:-.02em;font-size:18px}
+.logos .item.wide{letter-spacing:.42em;font-weight:600;font-size:16px}
+
+/* ============ MANIFESTO ============ */
+.manifesto{min-height:70vh;display:flex;align-items:center}
+.manifesto p{
+  font-size:clamp(28px,4.4vw,56px);font-weight:600;letter-spacing:-.025em;line-height:1.25;
+  max-width:1120px;
+}
+.manifesto .w{opacity:.13;display:inline-block;will-change:opacity}
+.manifesto .accent{font-family:var(--serif);font-style:italic;font-weight:400}
+
+/* ============ BENTO FEATURES ============ */
+.bento{display:grid;gap:16px;grid-template-columns:repeat(6,1fr);grid-auto-rows:minmax(240px,auto)}
+.card{
+  --mx:50%;--my:50%;
+  position:relative;border-radius:var(--r);border:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,.015));
+  padding:30px;overflow:hidden;isolation:isolate;
+  transition:border-color .5s,transform .6s var(--ease),box-shadow .6s;
+}
+.card:hover{border-color:var(--line2);transform:translateY(-4px);box-shadow:0 30px 80px -30px rgba(0,0,0,.9)}
+.card::before{ /* cursor spotlight */
+  content:"";position:absolute;inset:0;z-index:0;opacity:0;transition:opacity .5s;pointer-events:none;
+  background:radial-gradient(420px circle at var(--mx) var(--my),rgba(124,92,255,.14),transparent 65%);
+}
+.card:hover::before{opacity:1}
+.card::after{ /* border shimmer */
+  content:"";position:absolute;inset:0;z-index:0;border-radius:inherit;padding:1px;opacity:0;transition:opacity .5s;pointer-events:none;
+  background:radial-gradient(300px circle at var(--mx) var(--my),rgba(124,92,255,.55),transparent 70%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+}
+.card:hover::after{opacity:1}
+.card>*{position:relative;z-index:1}
+.card h3{font-size:19px;font-weight:600;letter-spacing:-.01em;margin-bottom:10px}
+.card p{font-size:14.5px;color:var(--mut);line-height:1.6;max-width:400px}
+.card .visual{margin-bottom:26px;height:120px;display:flex;align-items:center;justify-content:center}
+.c-agents{grid-column:span 4;grid-row:span 2}
+.c-memory{grid-column:span 2;grid-row:span 2}
+.c-orch{grid-column:span 2}
+.c-handoff{grid-column:span 2}
+.c-sec{grid-column:span 2}
+@media (max-width:980px){
+  .bento{grid-template-columns:repeat(2,1fr)}
+  .c-agents,.c-memory,.c-orch,.c-handoff,.c-sec{grid-column:span 2;grid-row:span 1}
+}
+.c-agents .visual{height:230px}
+/* orbit visual */
+.orbit{position:relative;width:230px;height:230px}
+.orbit .ring{position:absolute;inset:0;border:1px dashed rgba(255,255,255,.14);border-radius:50%}
+.orbit .ring.r2{inset:34px}
+.orbit .ring.r3{inset:68px}
+.orbit .core{
+  position:absolute;inset:0;margin:auto;width:54px;height:54px;border-radius:50%;
+  background:var(--grad);filter:blur(0);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 44px rgba(124,92,255,.65);font-size:20px;font-weight:800;color:#fff;
+}
+.orbit .sat{
+  position:absolute;top:50%;left:50%;width:34px;height:34px;margin:-17px;border-radius:12px;
+  border:1px solid var(--line2);background:rgba(16,16,26,.9);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  animation:orb linear infinite;
+  box-shadow:0 8px 24px rgba(0,0,0,.5);
+}
+@keyframes orb{
+  from{transform:rotate(var(--a0,0deg)) translateX(var(--rr,80px)) rotate(calc(var(--a0,0deg)*-1))}
+  to{transform:rotate(calc(var(--a0,0deg) + 360deg)) translateX(var(--rr,80px)) rotate(calc(-360deg - var(--a0,0deg)))}
+}
+/* memory bars */
+.membars{display:flex;flex-direction:column;gap:9px;width:100%;padding:0 6px}
+.membars .row{display:flex;align-items:center;gap:10px;font-size:10.5px;color:var(--dim);font-family:ui-monospace,monospace}
+.membars .bar{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+.membars .bar i{display:block;height:100%;border-radius:3px;background:var(--grad);width:0;transition:width 1.3s var(--ease)}
+.card.in-view .membars .bar i{width:var(--w,60%)}
+/* orchestration nodes */
+.nodes{width:100%;height:100%}
+.nodes .pulse-line{stroke-dasharray:6 8;animation:dashmove 1.4s linear infinite}
+@keyframes dashmove{to{stroke-dashoffset:-14}}
+/* handoff toggle */
+.handoff-vis{display:flex;align-items:center;gap:14px;font-size:11px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase}
+.handoff-vis .sw{width:64px;height:34px;border-radius:100px;background:rgba(255,255,255,.08);border:1px solid var(--line2);position:relative}
+.handoff-vis .sw i{
+  position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:var(--grad);
+  animation:sw 3.4s var(--ease) infinite;box-shadow:0 0 18px rgba(124,92,255,.7);
+}
+@keyframes sw{0%,38%{left:3px}50%,88%{left:33px}100%{left:3px}}
+/* security badges */
+.sec-badges{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.sec-badges span{
+  padding:7px 13px;border-radius:100px;border:1px solid var(--line2);font-size:11px;
+  letter-spacing:.12em;color:var(--mut);font-weight:600;background:rgba(255,255,255,.03);
+}
+
+/* ============ HOW IT WORKS (horizontal) ============ */
+.hiw{padding:0;position:relative}
+.hiw .pin-wrap{overflow:hidden}
+.hiw .rail{display:flex;width:max-content;align-items:stretch}
+.panel{
+  width:100vw;min-height:100svh;display:flex;align-items:center;justify-content:center;
+  padding:120px clamp(24px,6vw,90px);position:relative;flex-shrink:0;
+}
+.panel-inner{display:grid;grid-template-columns:1fr 1fr;gap:clamp(40px,6vw,100px);max-width:1240px;align-items:center}
+.panel .num{
+  font-size:clamp(120px,18vw,240px);font-weight:800;letter-spacing:-.06em;line-height:.9;
+  background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.02));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  font-variant-numeric:tabular-nums;
+}
+.panel .num .grad-text{font-size:.32em;vertical-align:super;letter-spacing:-.02em}
+.panel h3{font-size:clamp(30px,3.6vw,48px);font-weight:700;letter-spacing:-.03em;line-height:1.1;margin:18px 0 20px}
+.panel p{color:var(--mut);font-size:clamp(15px,1.4vw,17.5px);max-width:460px}
+.panel .plist{margin-top:28px;display:flex;flex-direction:column;gap:12px}
+.panel .plist span{display:flex;gap:12px;align-items:center;font-size:14px;color:var(--mut)}
+.panel .plist svg{flex-shrink:0}
+.panel .art{
+  border-radius:24px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.01));
+  aspect-ratio:1.15;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
+}
+.panel .art::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 60% at 50% 40%,rgba(124,92,255,.16),transparent 70%)}
+.hiw-progress{
+  position:absolute;bottom:44px;left:50%;transform:translateX(-50%);z-index:5;
+  display:flex;align-items:center;gap:14px;font-size:11px;letter-spacing:.26em;color:var(--dim);
+}
+.hiw-progress .track{width:200px;height:1px;background:var(--line2);position:relative}
+.hiw-progress .track i{position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(0);background:var(--grad)}
+@media (max-width:900px){
+  .hiw .rail{display:block;width:auto}
+  .panel{width:auto;min-height:0;padding:70px 24px}
+  .panel-inner{grid-template-columns:1fr;gap:36px}
+  .hiw-progress{display:none}
+}
+
+/* ============ DASHBOARD ============ */
+.dash-sec{background:radial-gradient(80% 60% at 50% 0%,rgba(124,92,255,.09),transparent 60%)}
+.dash-tilt{perspective:1400px}
+.dash{
+  border-radius:22px;border:1px solid var(--line2);
+  background:rgba(10,10,16,.75);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  overflow:hidden;transform-style:preserve-3d;will-change:transform;
+  box-shadow:0 60px 140px -40px rgba(0,0,0,.9),0 0 0 1px rgba(255,255,255,.02) inset,0 -20px 80px -20px rgba(124,92,255,.16) inset;
+}
+.dash .top{display:flex;align-items:center;gap:8px;padding:15px 20px;border-bottom:1px solid var(--line)}
+.dash .top i{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.12)}
+.dash .top i:nth-child(1){background:#ff5f57}.dash .top i:nth-child(2){background:#febc2e}.dash .top i:nth-child(3){background:#28c840}
+.dash .top .url{
+  margin:0 auto;padding:5px 40px;border-radius:8px;background:rgba(255,255,255,.05);
+  font-size:11.5px;color:var(--dim);font-family:ui-monospace,monospace;
+}
+.dash .body{display:grid;grid-template-columns:200px 1fr 260px;min-height:480px}
+.dash .side{border-right:1px solid var(--line);padding:20px 14px;display:flex;flex-direction:column;gap:4px}
+.dash .side a{
+  padding:9px 13px;border-radius:10px;font-size:13px;color:var(--mut);display:flex;gap:10px;align-items:center;
+}
+.dash .side a.on{background:rgba(124,92,255,.14);color:var(--ink);border:1px solid rgba(124,92,255,.25)}
+.dash .main{padding:26px}
+.dash .main .row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px}
+.dash .main h4{font-size:16px;font-weight:600}
+.dash .main .live{
+  display:flex;gap:7px;align-items:center;font-size:11px;color:#2fe6a7;letter-spacing:.1em;font-weight:600;
+}
+.dash .main .live i{width:6px;height:6px;border-radius:50%;background:#2fe6a7;box-shadow:0 0 10px #2fe6a7;animation:blink 1.6s infinite}
+@keyframes blink{50%{opacity:.3}}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
+.kpi{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:rgba(255,255,255,.02)}
+.kpi .l{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:6px}
+.kpi .v{font-size:22px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.kpi .d{font-size:10.5px;color:#2fe6a7;font-weight:600}
+.chart-box{border:1px solid var(--line);border-radius:14px;padding:18px;background:rgba(255,255,255,.015)}
+.chart-box svg{width:100%;height:150px}
+#chartLine{stroke-dasharray:1000;stroke-dashoffset:1000}
+#chartArea{opacity:0}
+.dash .feed{border-left:1px solid var(--line);padding:20px 16px}
+.dash .feed .fl{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:14px}
+.feed-item{display:flex;gap:11px;padding:11px 10px;border-radius:12px;font-size:12px;color:var(--mut);opacity:0;transform:translateX(20px)}
+.feed-item:hover{background:rgba(255,255,255,.03)}
+.feed-item .av{width:28px;height:28px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px}
+.feed-item b{color:var(--ink);font-weight:600}
+.feed-item .t{color:var(--dim);font-size:10.5px;margin-top:2px}
+@media (max-width:1000px){.dash .body{grid-template-columns:1fr}.dash .side,.dash .feed{display:none}}
+
+/* ============ STATS ============ */
+.stats{border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.stats .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(20px,4vw,60px)}
+.stat{padding:10px 0}
+.stat .n{
+  font-size:clamp(40px,5vw,68px);font-weight:800;letter-spacing:-.04em;line-height:1;
+  font-variant-numeric:tabular-nums;display:flex;align-items:baseline;
+}
+.stat .n .suf{font-size:.5em;margin-left:2px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.stat .l{margin-top:12px;font-size:13px;color:var(--mut)}
+.stat .rule{height:1px;background:var(--line);margin-top:26px;position:relative;overflow:hidden}
+.stat .rule i{position:absolute;inset:0;background:var(--grad);transform:scaleX(0);transform-origin:0 50%;transition:transform 1.4s var(--ease)}
+.stat.in-view .rule i{transform:scaleX(1)}
+@media (max-width:900px){.stats .grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ============ TESTIMONIALS ============ */
+.testi{overflow:hidden}
+.t-marquee{display:flex;gap:18px;width:max-content;padding:4px;will-change:transform}
+.t-row{overflow:hidden;margin-bottom:18px;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent);
+}
+.t-card{
+  width:400px;flex-shrink:0;border-radius:var(--r);border:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.012));
+  padding:26px;transition:border-color .4s,background .4s;
+}
+.t-card:hover{border-color:rgba(124,92,255,.4);background:rgba(124,92,255,.05)}
+.t-card .stars{color:var(--v);font-size:13px;letter-spacing:3px;margin-bottom:14px}
+.t-card p{font-size:14.5px;color:rgba(233,233,244,.78);line-height:1.65}
+.t-card .who{display:flex;gap:12px;align-items:center;margin-top:20px}
+.t-card .av{
+  width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.t-card .who b{display:block;font-size:13.5px;font-weight:600}
+.t-card .who span{font-size:12px;color:var(--dim)}
+@media (max-width:600px){.t-card{width:320px}}
+
+/* ============ PRICING ============ */
+.pricing-toggle{
+  display:flex;align-items:center;gap:14px;justify-content:center;margin-bottom:56px;font-size:13.5px;color:var(--mut);
+}
+.pricing-toggle .pt-switch{width:52px;height:29px;border-radius:100px;background:rgba(255,255,255,.08);border:1px solid var(--line2);position:relative;transition:background .4s}
+.pricing-toggle .pt-switch i{position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:var(--ink);transition:left .35s var(--ease),background .35s}
+.pricing-toggle.annual .pt-switch{background:rgba(124,92,255,.3)}
+.pricing-toggle.annual .pt-switch i{left:26px;background:#fff}
+.pricing-toggle .save{
+  padding:4px 11px;border-radius:100px;background:rgba(47,230,167,.12);color:#2fe6a7;
+  font-size:11px;font-weight:700;letter-spacing:.06em;
+}
+.pricing-toggle .opt{transition:color .3s}
+.pricing-toggle .opt.on{color:var(--ink);font-weight:600}
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch}
+.plan{
+  position:relative;border-radius:24px;border:1px solid var(--line);padding:36px 32px;
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.01));
+  display:flex;flex-direction:column;transition:transform .5s var(--ease),border-color .5s,box-shadow .5s;
+}
+.plan:hover{transform:translateY(-8px);border-color:var(--line2)}
+.plan.pop{
+  border-color:transparent;background:
+    linear-gradient(180deg,rgba(18,14,34,.92),rgba(10,10,16,.96)) padding-box,
+    var(--grad) border-box;
+  border:1px solid transparent;
+  box-shadow:0 40px 110px -30px rgba(124,92,255,.4);
+}
+.plan.pop:hover{transform:translateY(-8px) scale(1.01)}
+.plan .badge{
+  position:absolute;top:-13px;left:50%;transform:translateX(-50%);
+  padding:5px 16px;border-radius:100px;background:var(--grad);color:#fff;
+  font-size:10.5px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;white-space:nowrap;
+}
+.plan .name{font-size:15px;font-weight:600;letter-spacing:.02em}
+.plan .desc{font-size:12.5px;color:var(--dim);margin-top:5px}
+.plan .price{margin:26px 0 4px;display:flex;align-items:baseline;gap:6px}
+.plan .price .cur{font-size:20px;color:var(--mut);font-weight:500}
+.plan .price .amt{font-size:52px;font-weight:800;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.plan .price .per{font-size:13px;color:var(--dim)}
+.plan .bill-note{font-size:11.5px;color:var(--dim);min-height:16px}
+.plan ul{list-style:none;margin:28px 0 34px;display:flex;flex-direction:column;gap:13px;flex:1}
+.plan li{display:flex;gap:11px;font-size:13.5px;color:var(--mut);align-items:flex-start}
+.plan li svg{flex-shrink:0;margin-top:3px}
+.plan .btn{justify-content:center;width:100%}
+@media (max-width:900px){.plans{grid-template-columns:1fr;max-width:440px;margin:0 auto}}
+
+/* ============ CTA ============ */
+.cta{position:relative;overflow:hidden;text-align:center}
+.cta .aurora{
+  position:absolute;inset:-40% -20%;z-index:0;filter:blur(70px);opacity:.5;pointer-events:none;
+  background:conic-gradient(from 0deg at 50% 50%,transparent 0deg,rgba(124,92,255,.5) 80deg,transparent 160deg,rgba(58,214,255,.35) 230deg,transparent 300deg,rgba(255,78,205,.3) 340deg,transparent 360deg);
+  animation:aur 24s linear infinite;
+}
+@keyframes aur{to{transform:rotate(360deg)}}
+.cta .wrap{z-index:1}
+.cta h2{font-size:clamp(40px,6.4vw,88px);font-weight:700;letter-spacing:-.035em;line-height:1.05;max-width:900px;margin:0 auto}
+.cta p{margin:26px auto 0;max-width:520px;color:var(--mut);font-size:17px}
+.cta .cta-row{margin-top:46px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.cta .note{margin-top:22px;font-size:12.5px;color:var(--dim)}
+
+/* ============ FOOTER ============ */
+footer{border-top:1px solid var(--line);position:relative;overflow:hidden}
+.foot-grid{
+  display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:clamp(30px,5vw,70px);
+  padding:clamp(60px,7vw,100px) clamp(20px,5vw,72px) 60px;max-width:1240px;margin:0 auto;
+}
+.foot-grid .brand p{color:var(--mut);font-size:14px;max-width:280px;margin:16px 0 22px}
+.foot-grid h5{font-size:11.5px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);margin-bottom:20px;font-weight:600}
+.foot-grid ul{list-style:none;display:flex;flex-direction:column;gap:12px}
+.foot-grid ul a{font-size:14px;color:var(--mut);transition:color .3s;position:relative}
+.foot-grid ul a:hover{color:var(--ink)}
+.foot-grid ul a::after{content:"→";position:absolute;margin-left:6px;opacity:0;transform:translateX(-6px);transition:.3s}
+.foot-grid ul a:hover::after{opacity:1;transform:translateX(0)}
+.status-pill{
+  display:inline-flex;align-items:center;gap:9px;padding:9px 16px;border-radius:100px;
+  border:1px solid var(--line);font-size:12px;color:var(--mut);background:rgba(255,255,255,.02);
+}
+.status-pill i{width:7px;height:7px;border-radius:50%;background:#2fe6a7;box-shadow:0 0 12px #2fe6a7;animation:blink 2s infinite}
+.foot-bottom{
+  display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap;
+  padding:26px clamp(20px,5vw,72px);border-top:1px solid var(--line);max-width:1240px;margin:0 auto;
+  font-size:12.5px;color:var(--dim);
+}
+.big-word{
+  font-size:clamp(90px,17vw,260px);font-weight:800;letter-spacing:-.02em;line-height:.85;text-align:center;
+  background:linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,0));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  user-select:none;padding:40px 0 0;
+}
+
+/* ============ MISC ============ */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+<noscript><style>
+.preloader,.cursor-dot,.cursor-ring{display:none!important}
+.reveal,.reveal-hero,.chip,.feed-item{opacity:1!important;transform:none!important}
+.hero h1 .word{transform:none!important}
+.manifesto p,#chartArea{opacity:1!important}
+#chartLine{stroke-dasharray:none}
+</style></noscript>
+</head>
+<body>
+<!-- PRELOADER -->
+<div class="preloader" id="preloader">
+  <div class="mark">
+    <svg viewBox="0 0 48 48" fill="none"><path d="M24 4 L44 40 L4 40 Z" stroke="url(#pg)" stroke-width="2.5" stroke-linejoin="round"/><circle cx="24" cy="28" r="5" fill="url(#pg)"/><defs><linearGradient id="pg" x1="0" y1="0" x2="48" y2="48"><stop stop-color="#7c5cff"/><stop offset=".55" stop-color="#3ad6ff"/><stop offset="1" stop-color="#ff4ecd"/></linearGradient></defs></svg>
+  </div>
+  <div class="count" id="plCount">00</div>
+  <div class="bar"><i id="plBar"></i></div>
+</div>
+
+<div class="progress" id="progress"></div>
+<div class="cursor-dot" id="cDot"></div>
+<div class="cursor-ring" id="cRing"></div>
+
+<!-- NAV -->
+<nav class="nav" id="nav">
+  <a href="#" class="logo" data-hover>
+    <svg viewBox="0 0 48 48" fill="none"><path d="M24 4 L44 40 L4 40 Z" stroke="url(#lg)" stroke-width="3" stroke-linejoin="round"/><circle cx="24" cy="28" r="5" fill="url(#lg)"/><defs><linearGradient id="lg" x1="0" y1="0" x2="48" y2="48"><stop stop-color="#7c5cff"/><stop offset=".55" stop-color="#3ad6ff"/><stop offset="1" stop-color="#ff4ecd"/></linearGradient></defs></svg>
+    AETHER
+  </a>
+  <div class="links">
+    <a href="#features" data-hover>Product</a>
+    <a href="#how" data-hover>How it works</a>
+    <a href="#dashboard" data-hover>Platform</a>
+    <a href="#pricing" data-hover>Pricing</a>
+  </div>
+  <div class="right">
+    <a href="#" class="signin" data-hover>Sign in</a>
+    <a href="#pricing" class="btn btn-primary btn-sm" data-magnetic data-hover>Start free <span class="arr">→</span></a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="hero" id="hero">
+  <div class="halo"></div>
+  <div class="grid-floor"></div>
+  <canvas id="webgl"></canvas>
+
+  <div class="chip chip-1" data-parallax="26">
+    <span class="dot" style="background:#2fe6a7;box-shadow:0 0 10px #2fe6a7"></span>
+    <span><b>Triage agent</b> resolved 34 tickets</span>
+  </div>
+  <div class="chip chip-2" data-parallax="-34">
+    <span class="dot" style="background:#3ad6ff;box-shadow:0 0 10px #3ad6ff"></span>
+    <span><b>Release notes</b> drafted · awaiting review</span>
+  </div>
+  <div class="chip chip-3" data-parallax="18">
+    <span class="dot" style="background:#ff4ecd;box-shadow:0 0 10px #ff4ecd"></span>
+    <span><b>Pipeline watch</b> · all systems green</span>
+  </div>
+
+  <div class="hero-inner">
+    <div class="eyebrow reveal-hero"><span class="tag">NEW</span> Introducing Aether OS 2.0</div>
+    <h1 aria-label="Work at the speed of thought.">
+      <span class="line"><span class="word">Work&nbsp;at&nbsp;the</span></span>
+      <span class="line"><span class="word">speed&nbsp;of&nbsp;<em class="serif grad-text">thought.</em></span></span>
+    </h1>
+    <p class="sub reveal-hero">Aether deploys autonomous agents across your stack — triaging, drafting, shipping — while your team focuses on what only humans can do.</p>
+    <div class="cta-row reveal-hero">
+      <a href="#pricing" class="btn btn-primary" data-magnetic data-hover>Start building <span class="arr">→</span></a>
+      <a href="#how" class="btn btn-ghost" data-magnetic data-hover>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        Watch the film
+      </a>
+    </div>
+    <div class="meta-row reveal-hero">
+      <span><i></i>No credit card required</span>
+      <span><i></i>SOC 2 Type II</span>
+      <span><i></i>Deploys in minutes</span>
+    </div>
+  </div>
+
+  <div class="scroll-cue">
+    <div class="wheel"></div>
+    Scroll
+  </div>
+</header>
+
+<!-- LOGOS -->
+<section class="logos">
+  <div class="label">Trusted by 12,000+ teams shipping the future</div>
+  <div class="marquee">
+    <div class="track">
+      <span class="item">ARCLIGHT</span>
+      <span class="item thin">bluenote</span>
+      <span class="item wide">SOLSTICE</span>
+      <span class="item mono">north/loop</span>
+      <span class="item">KOVA</span>
+      <span class="item thin">driftwood</span>
+      <span class="item wide">MERIDIAN</span>
+      <span class="item mono">fable.dev</span>
+      <span class="item">ARCLIGHT</span>
+      <span class="item thin">bluenote</span>
+      <span class="item wide">SOLSTICE</span>
+      <span class="item mono">north/loop</span>
+      <span class="item">KOVA</span>
+      <span class="item thin">driftwood</span>
+      <span class="item wide">MERIDIAN</span>
+      <span class="item mono">fable.dev</span>
+    </div>
+  </div>
+</section>
+
+<!-- MANIFESTO -->
+<section class="section manifesto">
+  <div class="wrap">
+    <p id="manifesto">Your team wasn't hired to chase tickets, babysit pipelines, or drown in threads. Aether gives every team an <em class="accent grad-text">autonomous workforce</em> — so humans can get back to the <em class="accent">thinking.</em></p>
+  </div>
+</section>
+
+<!-- FEATURES / BENTO -->
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">The Platform</div>
+      <h2 class="h2 reveal">An operating layer,<br>not another <em class="serif grad-text">tab.</em></h2>
+      <p class="reveal">Aether plugs into the tools you already use and quietly takes over the work you never wanted.</p>
+    </div>
+
+    <div class="bento">
+      <div class="card c-agents reveal" data-tilt>
+        <div class="visual">
+          <div class="orbit">
+            <div class="ring"></div><div class="ring r2"></div><div class="ring r3"></div>
+            <div class="core">Æ</div>
+            <div class="sat" style="--a0:0deg;--rr:112px;animation-duration:14s">📬</div>
+            <div class="sat" style="--a0:120deg;--rr:112px;animation-duration:14s">🔀</div>
+            <div class="sat" style="--a0:240deg;--rr:112px;animation-duration:14s">📊</div>
+            <div class="sat" style="--a0:60deg;--rr:78px;animation-duration:9s">✅</div>
+            <div class="sat" style="--a0:240deg;--rr:78px;animation-duration:9s">✍️</div>
+          </div>
+        </div>
+        <h3>Autonomous agents</h3>
+        <p>Deploy agents that own entire workflows end-to-end — from intake to done. They plan, execute, verify, and report back like teammates, not scripts.</p>
+      </div>
+
+      <div class="card c-memory reveal" data-tilt>
+        <div class="visual">
+          <div class="membars">
+            <div class="row"><span>docs</span><div class="bar"><i style="--w:88%"></i></div><span>88%</span></div>
+            <div class="row"><span>threads</span><div class="bar"><i style="--w:72%"></i></div><span>72%</span></div>
+            <div class="row"><span>tickets</span><div class="bar"><i style="--w:95%"></i></div><span>95%</span></div>
+            <div class="row"><span>code</span><div class="bar"><i style="--w:64%"></i></div><span>64%</span></div>
+            <div class="row"><span>meetings</span><div class="bar"><i style="--w:81%"></i></div><span>81%</span></div>
+          </div>
+        </div>
+        <h3>Unified memory</h3>
+        <p>Every doc, thread, and decision becomes one searchable brain. Agents never ask what they should already know.</p>
+      </div>
+
+      <div class="card c-orch reveal" data-tilt>
+        <div class="visual">
+          <svg class="nodes" viewBox="0 0 300 110" fill="none">
+            <line class="pulse-line" x1="42" y1="55" x2="150" y2="24" stroke="rgba(124,92,255,.55)" stroke-width="1.5"/>
+            <line class="pulse-line" x1="42" y1="55" x2="150" y2="86" stroke="rgba(58,214,255,.5)" stroke-width="1.5"/>
+            <line class="pulse-line" x1="150" y1="24" x2="258" y2="55" stroke="rgba(255,78,205,.5)" stroke-width="1.5"/>
+            <line class="pulse-line" x1="150" y1="86" x2="258" y2="55" stroke="rgba(124,92,255,.4)" stroke-width="1.5"/>
+            <circle cx="42" cy="55" r="9" fill="#0e0e18" stroke="#7c5cff" stroke-width="2"/>
+            <circle cx="150" cy="24" r="9" fill="#0e0e18" stroke="#3ad6ff" stroke-width="2"/>
+            <circle cx="150" cy="86" r="9" fill="#0e0e18" stroke="#ff4ecd" stroke-width="2"/>
+            <circle cx="258" cy="55" r="9" fill="#0e0e18" stroke="#fff" stroke-width="2"/>
+          </svg>
+        </div>
+        <h3>Realtime orchestration</h3>
+        <p>Agents coordinate like a team, not a queue — handing off context mid-task.</p>
+      </div>
+
+      <div class="card c-handoff reveal" data-tilt>
+        <div class="visual">
+          <div class="handoff-vis">
+            <span>Auto</span>
+            <div class="sw"><i></i></div>
+            <span>Review</span>
+          </div>
+        </div>
+        <h3>Human handoff</h3>
+        <p>Approvals exactly where they matter. Silence everywhere they don't.</p>
+      </div>
+
+      <div class="card c-sec reveal" data-tilt>
+        <div class="visual">
+          <div class="sec-badges">
+            <span>SOC 2</span><span>GDPR</span><span>SSO / SAML</span><span>RBAC</span><span>AES-256</span>
+          </div>
+        </div>
+        <h3>Enterprise-grade trust</h3>
+        <p>Your data trains no one. Region-pinned, audited, encrypted at rest and in flight.</p>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- HOW IT WORKS — horizontal scroll story -->
+<section class="hiw" id="how">
+  <div class="pin-wrap" id="pinWrap">
+    <div class="rail" id="rail">
+
+      <div class="panel">
+        <div class="panel-inner">
+          <div>
+            <div class="num">01<span class="grad-text">/03</span></div>
+            <h3>Connect your stack</h3>
+            <p>One-click integrations for the 80+ tools your team lives in. Aether maps your workflows in minutes — no consultants, no migrations.</p>
+            <div class="plist">
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>Slack, Linear, GitHub, Notion, Gmail…</span>
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>Read-only until you say otherwise</span>
+            </div>
+          </div>
+          <div class="art">
+            <svg width="70%" viewBox="0 0 300 220" fill="none">
+              <circle cx="150" cy="110" r="34" fill="url(#hg1)" opacity=".9"/>
+              <text x="150" y="117" text-anchor="middle" fill="#fff" font-size="22" font-weight="800" font-family="Inter">Æ</text>
+              <g stroke="rgba(255,255,255,.25)" stroke-dasharray="4 6">
+                <line x1="150" y1="110" x2="46" y2="40"/><line x1="150" y1="110" x2="254" y2="40"/>
+                <line x1="150" y1="110" x2="30" y2="140"/><line x1="150" y1="110" x2="270" y2="140"/>
+                <line x1="150" y1="110" x2="90" y2="196"/><line x1="150" y1="110" x2="210" y2="196"/>
+              </g>
+              <g fill="#12121c" stroke="rgba(255,255,255,.2)">
+                <rect x="26" y="20" width="40" height="40" rx="12"/><rect x="234" y="20" width="40" height="40" rx="12"/>
+                <rect x="10" y="120" width="40" height="40" rx="12"/><rect x="250" y="120" width="40" height="40" rx="12"/>
+                <rect x="70" y="176" width="40" height="40" rx="12"/><rect x="190" y="176" width="40" height="40" rx="12"/>
+              </g>
+              <g font-size="15" text-anchor="middle">
+                <text x="46" y="46">💬</text><text x="254" y="46">🗂️</text><text x="30" y="146">🐙</text>
+                <text x="270" y="146">📝</text><text x="90" y="202">✉️</text><text x="210" y="202">📅</text>
+              </g>
+              <defs><linearGradient id="hg1" x1="0" y1="0" x2="300" y2="220"><stop stop-color="#7c5cff"/><stop offset="1" stop-color="#3ad6ff"/></linearGradient></defs>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-inner">
+          <div>
+            <div class="num">02<span class="grad-text">/03</span></div>
+            <h3>Teach it your playbook</h3>
+            <p>Show an agent a task once — or just describe it. Aether learns your tone, your edge cases, your definition of done.</p>
+            <div class="plist">
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>Natural-language playbooks, versioned like code</span>
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>Dry-run mode before anything ships</span>
+            </div>
+          </div>
+          <div class="art">
+            <svg width="72%" viewBox="0 0 320 220" fill="none">
+              <rect x="20" y="24" width="280" height="172" rx="16" fill="#0d0d16" stroke="rgba(255,255,255,.14)"/>
+              <rect x="20" y="24" width="280" height="34" rx="16" fill="rgba(255,255,255,.04)"/>
+              <circle cx="40" cy="41" r="4" fill="#ff5f57"/><circle cx="54" cy="41" r="4" fill="#febc2e"/><circle cx="68" cy="41" r="4" fill="#28c840"/>
+              <text x="40" y="86" fill="rgba(233,233,244,.4)" font-family="monospace" font-size="11">playbook: triage-inbound.md</text>
+              <rect x="40" y="98" width="190" height="8" rx="4" fill="rgba(124,92,255,.5)"/>
+              <rect x="40" y="116" width="230" height="8" rx="4" fill="rgba(255,255,255,.12)"/>
+              <rect x="40" y="134" width="150" height="8" rx="4" fill="rgba(255,255,255,.12)"/>
+              <rect x="40" y="152" width="205" height="8" rx="4" fill="rgba(58,214,255,.4)"/>
+              <rect x="40" y="170" width="120" height="8" rx="4" fill="rgba(255,255,255,.12)"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-inner">
+          <div>
+            <div class="num">03<span class="grad-text">/03</span></div>
+            <h3>Delegate, then sleep</h3>
+            <p>Agents run around the clock. You wake up to finished work, a clean queue, and a morning digest of everything that happened.</p>
+            <div class="plist">
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>Full audit trail of every action</span>
+              <span><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>Roll back anything with one click</span>
+            </div>
+          </div>
+          <div class="art">
+            <svg width="72%" viewBox="0 0 320 220" fill="none">
+              <g font-family="Inter" font-size="11">
+                <rect x="30" y="30" width="260" height="42" rx="12" fill="#0d0d16" stroke="rgba(47,230,167,.4)"/>
+                <circle cx="52" cy="51" r="8" fill="rgba(47,230,167,.2)"/><text x="48" y="55" fill="#2fe6a7" font-size="10">✓</text>
+                <text x="70" y="48" fill="#f2f2f6" font-weight="600">34 tickets triaged</text>
+                <text x="70" y="62" fill="rgba(233,233,244,.4)">while you slept · 11:04 PM – 6:58 AM</text>
+                <rect x="30" y="86" width="260" height="42" rx="12" fill="#0d0d16" stroke="rgba(58,214,255,.4)"/>
+                <circle cx="52" cy="107" r="8" fill="rgba(58,214,255,.2)"/><text x="48" y="111" fill="#3ad6ff" font-size="10">✓</text>
+                <text x="70" y="104" fill="#f2f2f6" font-weight="600">Release notes drafted</text>
+                <text x="70" y="118" fill="rgba(233,233,244,.4)">awaiting your review · 2 min read</text>
+                <rect x="30" y="142" width="260" height="42" rx="12" fill="#0d0d16" stroke="rgba(124,92,255,.4)"/>
+                <circle cx="52" cy="163" r="8" fill="rgba(124,92,255,.2)"/><text x="48" y="167" fill="#7c5cff" font-size="10">✓</text>
+                <text x="70" y="160" fill="#f2f2f6" font-weight="600">Weekly digest sent</text>
+                <text x="70" y="174" fill="rgba(233,233,244,.4)">to 6 stakeholders · zero edits needed</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="hiw-progress">
+      <span>01</span>
+      <div class="track"><i id="hiwBar"></i></div>
+      <span>03</span>
+    </div>
+  </div>
+</section>
+
+<!-- DASHBOARD -->
+<section class="section dash-sec" id="dashboard">
+  <div class="wrap">
+    <div class="sec-head center">
+      <div class="kicker">Mission Control</div>
+      <h2 class="h2 reveal">Every agent. One <em class="serif grad-text">pane of glass.</em></h2>
+      <p class="reveal">Watch your autonomous workforce in real time — what's running, what shipped, what needs you.</p>
+    </div>
+    <div class="dash-tilt reveal" id="dashTilt">
+      <div class="dash" id="dash">
+        <div class="top">
+          <i></i><i></i><i></i>
+          <span class="url">app.aether.os/overview</span>
+        </div>
+        <div class="body">
+          <div class="side">
+            <a class="on">◈ Overview</a>
+            <a>⚡ Agents</a>
+            <a>🧠 Memory</a>
+            <a>📓 Playbooks</a>
+            <a>🔌 Integrations</a>
+            <a>🛡️ Audit log</a>
+          </div>
+          <div class="main">
+            <div class="row1">
+              <h4>Overview</h4>
+              <div class="live"><i></i>LIVE</div>
+            </div>
+            <div class="kpis">
+              <div class="kpi"><div class="l">Active agents</div><div class="v" data-count="24">0</div><div class="d">▲ 4 this week</div></div>
+              <div class="kpi"><div class="l">Tasks today</div><div class="v" data-count="1284">0</div><div class="d">▲ 12.4%</div></div>
+              <div class="kpi"><div class="l">Hours saved</div><div class="v" data-count="312">0</div><div class="d">▲ this week</div></div>
+            </div>
+            <div class="chart-box">
+              <svg viewBox="0 0 560 150" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cg" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#7c5cff"/><stop offset=".6" stop-color="#3ad6ff"/><stop offset="1" stop-color="#ff4ecd"/></linearGradient>
+                  <linearGradient id="ag" x1="0" y1="0" x2="0" y2="1"><stop stop-color="rgba(124,92,255,.28)"/><stop offset="1" stop-color="rgba(124,92,255,0)"/></linearGradient>
+                </defs>
+                <g stroke="rgba(255,255,255,.05)"><line x1="0" y1="30" x2="560" y2="30"/><line x1="0" y1="70" x2="560" y2="70"/><line x1="0" y1="110" x2="560" y2="110"/></g>
+                <path id="chartArea" d="M0,118 C60,112 90,88 140,84 C190,80 210,96 260,78 C310,60 330,64 380,44 C430,26 470,38 560,14 L560,150 L0,150 Z" fill="url(#ag)"/>
+                <path id="chartLine" d="M0,118 C60,112 90,88 140,84 C190,80 210,96 260,78 C310,60 330,64 380,44 C430,26 470,38 560,14" stroke="url(#cg)" stroke-width="2.5" fill="none"/>
+              </svg>
+            </div>
+          </div>
+          <div class="feed">
+            <div class="fl">Agent activity</div>
+            <div class="feed-item"><div class="av" style="background:rgba(124,92,255,.2)">🔀</div><div><b>Triage-01</b> routed 12 tickets to eng<div class="t">just now</div></div></div>
+            <div class="feed-item"><div class="av" style="background:rgba(58,214,255,.15)">✍️</div><div><b>Scribe</b> drafted onboarding doc v3<div class="t">2m ago</div></div></div>
+            <div class="feed-item"><div class="av" style="background:rgba(255,78,205,.15)">📊</div><div><b>Analyst</b> flagged churn anomaly<div class="t">8m ago</div></div></div>
+            <div class="feed-item"><div class="av" style="background:rgba(47,230,167,.15)">✅</div><div><b>QA-Loop</b> verified 214 test runs<div class="t">14m ago</div></div></div>
+            <div class="feed-item"><div class="av" style="background:rgba(255,255,255,.08)">🌙</div><div><b>Night shift</b> completed 96 tasks<div class="t">6h ago</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<section class="section stats">
+  <div class="wrap">
+    <div class="grid">
+      <div class="stat"><div class="n"><span data-count="12400">0</span><span class="suf">+</span></div><div class="l">Teams running on Aether</div><div class="rule"><i></i></div></div>
+      <div class="stat"><div class="n"><span data-count="38">0</span><span class="suf">M</span></div><div class="l">Agent runs every month</div><div class="rule"><i></i></div></div>
+      <div class="stat"><div class="n"><span data-count="40">0</span><span class="suf">hrs</span></div><div class="l">Saved per team, weekly</div><div class="rule"><i></i></div></div>
+      <div class="stat"><div class="n"><span data-count="99.99" data-dec="2">0</span><span class="suf">%</span></div><div class="l">Uptime, globally distributed</div><div class="rule"><i></i></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="section testi">
+  <div class="sec-head center" style="padding:0 24px">
+    <div class="kicker">Loved by builders</div>
+    <h2 class="h2 reveal">Don't take our <em class="serif grad-text">word</em> for it.</h2>
+  </div>
+  <div class="t-row">
+    <div class="t-marquee" data-dir="1">
+      <div class="t-card"><div class="stars">★★★★★</div><p>"We deleted four internal tools the month we adopted Aether. The triage agent alone pays for the whole plan."</p><div class="who"><div class="av" style="background:linear-gradient(135deg,#7c5cff,#3ad6ff)">MC</div><div><b>Mira Chen</b><span>VP Engineering, Arclight</span></div></div></div>
+      <div class="t-card"><div class="stars">★★★★★</div><p>"It's the first AI product that feels like hiring, not prompting. Our agents have quarterly goals now. I'm not joking."</p><div class="who"><div class="av" style="background:linear-gradient(135deg,#ff4ecd,#7c5cff)">DO</div><div><b>Dele Okafor</b><span>COO, Northloop</span></div></div></div>
+      <div class="t-card"><div class="stars">★★★★★</div><p>"Support backlog went from 3 days to 40 minutes. Our CSAT is the highest it's ever been — with a smaller team."</p><div class="who"><div class="av" style="background:linear-gradient(135deg,#3ad6ff,#2fe6a7)">SR</div><div><b>Sofia Reyes</b><span>Head of Support, Bluenote</span></div></div></div>
+      <div class="t-card"><div class="stars">★★★★★</div><p>"The audit trail sold our security team. The morning digest sold everyone else. Rollout took one afternoon."</p><div class="who"><div class="av" style="background:linear-gradient(135deg,#febc2e,#ff4ecd)">JT</div><div><b>Jonas Thal</b><span>CISO, Meridian Co</span></div></div></div>
+    </div>
+  </div>
+  <div class="t-row">
+    <div class="t-marquee" data-dir="-1">
+      <div class="t-card"><div class="stars">★★★★★</div><p>"I was the bottleneck for every release note, every changelog, every update email. I am no longer the bottleneck."</p><div class="who"><div class="av" style="background:linear-gradient(135deg,#2fe6a7,#3ad6ff)">AK</div><div><b>Amara Kide</b><span>Product Lead, Solstice</span></div></div></div>
+      <div class="t-card"><div class="stars">★★★★★</div><p>"Aether's dry-run mode is genius. We watched it work for a week before flipping the switch. Zero surprises since."</p><div class="who"><div class="av" style="background:linear-gradient(135deg,#7c5cff,#ff4ecd)">LB</div><div><b>Luca Bianchi</b><span>CTO, Driftwood</span></div></div></div>
+      <div class="t-card"><div class="stars">★★★★★</div><p>"40 hours a week back. That's not a metric, that's a whole engineer. We put it toward the roadmap."</p><div class="who"><div class="av" style="background:linear-gradient(135deg,#3ad6ff,#7c5cff)">PW</div><div><b>Priya Wells</b><span>Founder, Kova</span></div></div></div>
+      <div class="t-card"><div class="stars">★★★★★</div><p>"Our onboarding agent greets every new hire, provisions access, and schedules their first week. HR cried. Happy tears."</p><div class="who"><div class="av" style="background:linear-gradient(135deg,#ff4ecd,#febc2e)">HN</div><div><b>Hana Nakamura</b><span>People Ops, Fable.dev</span></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="wrap">
+    <div class="sec-head center">
+      <div class="kicker">Pricing</div>
+      <h2 class="h2 reveal">Start free. Scale when <em class="serif grad-text">they do.</em></h2>
+      <p class="reveal">Every plan includes unlimited playbooks, full audit trails, and human handoff.</p>
+    </div>
+
+    <div class="pricing-toggle reveal" id="ptoggle">
+      <span class="opt on" data-opt="mo">Monthly</span>
+      <button class="pt-switch" aria-label="Toggle annual billing"><i></i></button>
+      <span class="opt" data-opt="yr">Annual</span>
+      <span class="save">Save 20%</span>
+    </div>
+
+    <div class="plans">
+      <div class="plan reveal" data-tilt>
+        <div class="name">Starter</div>
+        <div class="desc">For solo builders & side projects</div>
+        <div class="price"><span class="cur">$</span><span class="amt" data-mo="0" data-yr="0">0</span><span class="per">/user/mo</span></div>
+        <div class="bill-note">Free forever</div>
+        <ul>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#7c5cff" stroke-width="2.5" stroke-linecap="round"/></svg>2 autonomous agents</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#7c5cff" stroke-width="2.5" stroke-linecap="round"/></svg>500 agent runs / month</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#7c5cff" stroke-width="2.5" stroke-linecap="round"/></svg>10 integrations</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#7c5cff" stroke-width="2.5" stroke-linecap="round"/></svg>Community support</li>
+        </ul>
+        <a href="#" class="btn btn-ghost" data-hover>Start free</a>
+      </div>
+
+      <div class="plan pop reveal" data-tilt>
+        <div class="badge">Most popular</div>
+        <div class="name">Scale</div>
+        <div class="desc">For teams shipping every week</div>
+        <div class="price"><span class="cur">$</span><span class="amt" data-mo="29" data-yr="23">29</span><span class="per">/user/mo</span></div>
+        <div class="bill-note" data-note-mo="Billed monthly" data-note-yr="Billed annually — 2 months free">Billed monthly</div>
+        <ul>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>Unlimited agents</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>25,000 agent runs / month</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>All 80+ integrations</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>Unified memory across tools</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#3ad6ff" stroke-width="2.5" stroke-linecap="round"/></svg>Priority support, 4h SLA</li>
+        </ul>
+        <a href="#" class="btn btn-primary" data-magnetic data-hover>Start 14-day trial <span class="arr">→</span></a>
+      </div>
+
+      <div class="plan reveal" data-tilt>
+        <div class="name">Enterprise</div>
+        <div class="desc">For orgs with serious surface area</div>
+        <div class="price"><span class="amt" style="font-size:40px">Custom</span></div>
+        <div class="bill-note">Volume pricing, annual terms</div>
+        <ul>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#ff4ecd" stroke-width="2.5" stroke-linecap="round"/></svg>Unlimited everything</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#ff4ecd" stroke-width="2.5" stroke-linecap="round"/></svg>On-prem or region-pinned inference</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#ff4ecd" stroke-width="2.5" stroke-linecap="round"/></svg>SSO/SAML, SCIM, custom RBAC</li>
+          <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5" stroke="#ff4ecd" stroke-width="2.5" stroke-linecap="round"/></svg>Dedicated success engineer</li>
+        </ul>
+        <a href="#" class="btn btn-ghost" data-hover>Talk to sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="section cta">
+  <div class="aurora"></div>
+  <div class="wrap">
+    <h2 class="reveal">Give your team their <em class="serif grad-text">time</em> back.</h2>
+    <p class="reveal">Join 12,000+ teams who stopped doing robot work. Your first agent can be live before your coffee cools.</p>
+    <div class="cta-row reveal">
+      <a href="#" class="btn btn-primary" data-magnetic data-hover>Start building free <span class="arr">→</span></a>
+      <a href="#" class="btn btn-ghost" data-magnetic data-hover>Book a demo</a>
+    </div>
+    <div class="note reveal">No credit card · Cancel anytime · SOC 2 Type II</div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="foot-grid">
+    <div class="brand">
+      <a href="#" class="logo" style="display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.24em;font-size:14px" data-hover>
+        <svg width="22" height="22" viewBox="0 0 48 48" fill="none"><path d="M24 4 L44 40 L4 40 Z" stroke="url(#fg)" stroke-width="3" stroke-linejoin="round"/><circle cx="24" cy="28" r="5" fill="url(#fg)"/><defs><linearGradient id="fg" x1="0" y1="0" x2="48" y2="48"><stop stop-color="#7c5cff"/><stop offset=".55" stop-color="#3ad6ff"/><stop offset="1" stop-color="#ff4ecd"/></linearGradient></defs></svg>
+        AETHER
+      </a>
+      <p>The AI operating layer for teams that move at the speed of thought.</p>
+      <div class="status-pill"><i></i>All systems operational</div>
+    </div>
+    <div>
+      <h5>Product</h5>
+      <ul>
+        <li><a href="#features" data-hover>Agents</a></li>
+        <li><a href="#dashboard" data-hover>Mission Control</a></li>
+        <li><a href="#pricing" data-hover>Pricing</a></li>
+        <li><a href="#" data-hover>Changelog</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Company</h5>
+      <ul>
+        <li><a href="#" data-hover>About</a></li>
+        <li><a href="#" data-hover>Careers</a></li>
+        <li><a href="#" data-hover>Blog</a></li>
+        <li><a href="#" data-hover>Press kit</a></li>
+      </ul>
+    </div>
+    <div>
+      <h5>Resources</h5>
+      <ul>
+        <li><a href="#" data-hover>Docs</a></li>
+        <li><a href="#" data-hover>API reference</a></li>
+        <li><a href="#" data-hover>Security</a></li>
+        <li><a href="#" data-hover>Status</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="big-word" id="bigWord">AETHER</div>
+  <div class="foot-bottom">
+    <span>© 2026 Aether Systems, Inc. All rights reserved.</span>
+    <span>Designed in orbit. Built on Earth.</span>
+    <span><a href="#" data-hover>Privacy</a> · <a href="#" data-hover>Terms</a> · <a href="#" data-hover>DPA</a></span>
+  </div>
+</footer>
+<script>
+(function(){
+'use strict';
+
+/* ---------- Safety: if CDNs failed, show everything and bail ---------- */
+if (!window.gsap) {
+  document.querySelectorAll('.reveal').forEach(function(el){ el.style.opacity=1; el.style.transform='none'; });
+  document.querySelectorAll('.hero h1 .word').forEach(function(el){ el.style.transform='none'; });
+  var pl = document.getElementById('preloader'); if (pl) pl.style.display='none';
+  return;
+}
+
+gsap.registerPlugin(ScrollTrigger);
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isTouch = window.matchMedia('(hover: none)').matches || 'ontouchstart' in window;
+
+/* ============================================================
+   SMOOTH SCROLL (Lenis) — graceful fallback to native
+============================================================ */
+let lenis = null;
+if (window.Lenis && !reduceMotion) {
+  lenis = new Lenis({ duration: 1.15, smoothWheel: true });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add((t) => lenis.raf(t * 1000));
+  gsap.ticker.lagSmoothing(0);
+}
+function scrollToTarget(target){
+  const el = document.querySelector(target);
+  if (!el) return;
+  if (lenis) lenis.scrollTo(el, { offset: -70, duration: 1.4 });
+  else el.scrollIntoView({ behavior:'smooth' });
+}
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const href = a.getAttribute('href');
+    if (href.length > 1) { e.preventDefault(); scrollToTarget(href); }
+    else e.preventDefault();
+  });
+});
+
+/* ============================================================
+   CUSTOM CURSOR — dot + trailing ring
+============================================================ */
+if (!isTouch) {
+  const dot = document.getElementById('cDot'), ring = document.getElementById('cRing');
+  let mx = innerWidth/2, my = innerHeight/2, rx = mx, ry = my, dx = mx, dy = my;
+  addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+  gsap.ticker.add(() => {
+    dx += (mx - dx) * 0.55; dy += (my - dy) * 0.55;
+    rx += (mx - rx) * 0.16; ry += (my - ry) * 0.16;
+    dot.style.transform = `translate(${dx}px,${dy}px) translate(-50%,-50%)`;
+    ring.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
+  });
+  document.addEventListener('mouseover', e => {
+    if (e.target.closest('[data-hover], a, button')) ring.classList.add('is-hover');
+  });
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest('[data-hover], a, button')) ring.classList.remove('is-hover');
+  });
+} else {
+  document.getElementById('cDot').style.display = 'none';
+  document.getElementById('cRing').style.display = 'none';
+}
+
+/* ============================================================
+   MAGNETIC BUTTONS
+============================================================ */
+if (!isTouch) {
+  document.querySelectorAll('[data-magnetic]').forEach(btn => {
+    const xTo = gsap.quickTo(btn, 'x', { duration: 0.4, ease: 'power3' });
+    const yTo = gsap.quickTo(btn, 'y', { duration: 0.4, ease: 'power3' });
+    btn.addEventListener('mousemove', e => {
+      const r = btn.getBoundingClientRect();
+      xTo((e.clientX - (r.left + r.width/2)) * 0.32);
+      yTo((e.clientY - (r.top + r.height/2)) * 0.32);
+    });
+    btn.addEventListener('mouseleave', () => {
+      gsap.to(btn, { x: 0, y: 0, duration: 0.9, ease: 'elastic.out(1, 0.35)' });
+    });
+  });
+}
+
+/* ============================================================
+   NAV — glass on scroll, hide on scroll down
+============================================================ */
+const nav = document.getElementById('nav');
+let lastY = 0;
+ScrollTrigger.create({
+  start: 0, end: 'max',
+  onUpdate(self) {
+    const y = self.scroll();
+    nav.classList.toggle('is-scrolled', y > 40);
+    if (y > 500 && y > lastY + 6) nav.classList.add('is-hidden');
+    else if (y < lastY - 6) nav.classList.remove('is-hidden');
+    lastY = y;
+  }
+});
+
+/* scroll progress bar */
+gsap.to('#progress', {
+  scaleX: 1, ease: 'none',
+  scrollTrigger: { start: 0, end: 'max', scrub: 0.3 }
+});
+
+/* ============================================================
+   THREE.JS HERO — torus knot + particle field
+============================================================ */
+let three = null;
+(function initThree(){
+  if (!window.THREE || reduceMotion) return;
+  const canvas = document.getElementById('webgl');
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+  } catch(e) { return; }
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+  camera.position.set(0, 0, 7.5);
+
+  const group = new THREE.Group();
+  scene.add(group);
+
+  /* the artifact */
+  const geo = new THREE.TorusKnotGeometry(1.5, 0.42, 260, 40);
+  const mat = new THREE.MeshStandardMaterial({ color: 0x15151f, metalness: 0.92, roughness: 0.24 });
+  const knot = new THREE.Mesh(geo, mat);
+  group.add(knot);
+
+  const wire = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({
+    color: 0x9d8cff, wireframe: true, transparent: true, opacity: 0.05
+  }));
+  wire.scale.setScalar(1.003);
+  group.add(wire);
+
+  /* lights — violet / cyan / magenta rig */
+  scene.add(new THREE.AmbientLight(0x404060, 0.55));
+  const l1 = new THREE.PointLight(0x7c5cff, 2.4, 30); l1.position.set(4, 3, 4);
+  const l2 = new THREE.PointLight(0x3ad6ff, 1.8, 30); l2.position.set(-5, -2, 3);
+  const l3 = new THREE.PointLight(0xff4ecd, 1.5, 30); l3.position.set(0, 4, -4);
+  scene.add(l1, l2, l3);
+
+  /* particle field */
+  const N = 1500, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  const palette = [new THREE.Color(0x7c5cff), new THREE.Color(0x3ad6ff), new THREE.Color(0xff4ecd), new THREE.Color(0xffffff)];
+  for (let i = 0; i < N; i++) {
+    const r = 5 + Math.random() * 11;
+    const th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+    pos[i*3]   = r * Math.sin(ph) * Math.cos(th);
+    pos[i*3+1] = r * Math.sin(ph) * Math.sin(th) * 0.6;
+    pos[i*3+2] = r * Math.cos(ph) - 4;
+    const c = palette[(Math.random() * palette.length) | 0];
+    col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+  }
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  pGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const stars = new THREE.Points(pGeo, new THREE.PointsMaterial({
+    size: 0.035, vertexColors: true, transparent: true, opacity: 0.75,
+    blending: THREE.AdditiveBlending, depthWrite: false
+  }));
+  scene.add(stars);
+
+  /* sizing */
+  const hero = document.getElementById('hero');
+  function resize(){
+    const w = hero.clientWidth, h = hero.clientHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  resize();
+  addEventListener('resize', resize);
+
+  /* mouse parallax */
+  let tx = 0, ty = 0;
+  addEventListener('mousemove', e => {
+    tx = (e.clientX / innerWidth - 0.5);
+    ty = (e.clientY / innerHeight - 0.5);
+  });
+
+  const clock = new THREE.Clock();
+  let visible = true;
+  gsap.ticker.add(() => {
+    if (!visible) return;
+    const t = clock.getElapsedTime();
+    knot.rotation.x = t * 0.16;
+    knot.rotation.y = t * 0.11;
+    wire.rotation.copy(knot.rotation);
+    stars.rotation.y = -t * 0.014;
+    l1.position.x = Math.sin(t * 0.5) * 5;
+    l1.position.z = Math.cos(t * 0.5) * 5;
+    camera.position.x += (tx * 1.1 - camera.position.x) * 0.045;
+    camera.position.y += (-ty * 0.8 - camera.position.y) * 0.045;
+    camera.lookAt(0, 0, 0);
+    renderer.render(scene, camera);
+  });
+
+  /* scroll: artifact recedes as you leave the hero */
+  gsap.to(group.scale, { x: 0.55, y: 0.55, z: 0.55, ease: 'none',
+    scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: true } });
+  gsap.to(group.position, { y: -1.4, ease: 'none',
+    scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: true } });
+  gsap.to(group.rotation, { z: 0.6, ease: 'none',
+    scrollTrigger: { trigger: hero, start: 'top top', end: 'bottom top', scrub: true } });
+  gsap.to(['#webgl', '.halo'], { autoAlpha: 0, ease: 'none',
+    scrollTrigger: { trigger: hero, start: '40% top', end: 'bottom top', scrub: true } });
+
+  ScrollTrigger.create({
+    trigger: hero, start: 'top bottom', end: 'bottom top',
+    onToggle: self => { visible = self.isActive; }
+  });
+
+  three = { renderer };
+})();
+/* ============================================================
+   HELPERS
+============================================================ */
+function fmt(v, dec) {
+  if (dec) return v.toFixed(dec);
+  return Math.round(v).toLocaleString('en-US');
+}
+function countUp(el, target, dec, dur) {
+  const o = { v: 0 };
+  gsap.to(o, {
+    v: target, duration: dur || 1.8, ease: 'power2.out',
+    onUpdate: () => { el.textContent = fmt(o.v, dec); }
+  });
+}
+
+/* ============================================================
+   PRELOADER → HERO INTRO
+============================================================ */
+gsap.set('.reveal-hero', { opacity: 0, y: 26 });
+gsap.set('.chip', { autoAlpha: 0, scale: 0.7 });
+
+const introTl = gsap.timeline({ paused: true });
+introTl
+  .to('#preloader', { yPercent: -100, duration: 0.9, ease: 'power4.inOut' })
+  .set('#preloader', { display: 'none' })
+  .add(() => { if (lenis) lenis.start(); document.body.style.overflow = ''; })
+  .to('.hero h1 .word', { y: 0, duration: 1.25, ease: 'power4.out', stagger: 0.14 }, '-=0.42')
+  .to('.reveal-hero', { opacity: 1, y: 0, duration: 1, ease: 'power3.out', stagger: 0.11 }, '-=0.85')
+  .to('.chip', { autoAlpha: 1, scale: 1, duration: 0.8, ease: 'back.out(1.6)', stagger: 0.12 }, '-=0.7');
+
+if (reduceMotion) {
+  document.getElementById('preloader').style.display = 'none';
+  gsap.set(['.hero h1 .word', '.reveal-hero', '.chip', '.reveal'], { clearProps: 'all', opacity: 1, y: 0 });
+} else {
+  document.body.style.overflow = 'hidden';
+  if (lenis) lenis.stop();
+  const cnt = { v: 0 };
+  gsap.to(cnt, {
+    v: 100, duration: 1.7, ease: 'power2.inOut', delay: 0.2,
+    onUpdate() {
+      document.getElementById('plCount').textContent = String(Math.round(cnt.v)).padStart(2, '0');
+      document.getElementById('plBar').style.width = cnt.v + '%';
+    },
+    onComplete: () => introTl.play()
+  });
+}
+
+/* hero chips — mouse parallax */
+if (!isTouch) {
+  const chips = document.querySelectorAll('[data-parallax]');
+  document.getElementById('hero').addEventListener('mousemove', e => {
+    const px = e.clientX / innerWidth - 0.5, py = e.clientY / innerHeight - 0.5;
+    chips.forEach(ch => {
+      const f = parseFloat(ch.dataset.parallax);
+      gsap.to(ch, { x: px * f, y: py * f, duration: 1.1, ease: 'power2.out' });
+    });
+  });
+}
+
+/* scroll cue fades out */
+gsap.to('.scroll-cue', { autoAlpha: 0, ease: 'none',
+  scrollTrigger: { trigger: '#hero', start: '6% top', end: '22% top', scrub: true } });
+
+/* ============================================================
+   MANIFESTO — word-by-word illumination
+============================================================ */
+(function splitManifesto(){
+  const p = document.getElementById('manifesto');
+  const nodes = Array.from(p.childNodes);
+  const frag = document.createDocumentFragment();
+  nodes.forEach(node => {
+    const isEl = node.nodeType === 1;
+    const cls = isEl ? node.className + ' w' : 'w';
+    const words = (node.textContent || '').split(/\s+/).filter(Boolean);
+    words.forEach(word => {
+      const s = document.createElement('span');
+      s.className = cls;
+      s.textContent = word;
+      frag.appendChild(s);
+      frag.appendChild(document.createTextNode(' '));
+    });
+  });
+  p.innerHTML = '';
+  p.appendChild(frag);
+  gsap.to('#manifesto .w', {
+    opacity: 1, stagger: 0.05, ease: 'none',
+    scrollTrigger: { trigger: '.manifesto', start: 'top 72%', end: 'bottom 68%', scrub: 0.4 }
+  });
+})();
+
+/* ============================================================
+   GENERIC SCROLL REVEALS
+============================================================ */
+gsap.utils.toArray('.reveal').forEach(el => {
+  gsap.to(el, {
+    opacity: 1, y: 0, duration: 1.15, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 88%' }
+  });
+});
+
+/* ============================================================
+   BENTO — spotlight, tilt, in-view
+============================================================ */
+document.querySelectorAll('.card').forEach(card => {
+  card.addEventListener('pointermove', e => {
+    const r = card.getBoundingClientRect();
+    card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+    card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+  });
+  ScrollTrigger.create({
+    trigger: card, start: 'top 85%', once: true,
+    onEnter: () => card.classList.add('in-view')
+  });
+});
+
+/* subtle 3D tilt on cards & plans */
+if (!isTouch && !reduceMotion) {
+  document.querySelectorAll('[data-tilt]').forEach(el => {
+    const rx = gsap.quickTo(el, 'rotationX', { duration: 0.6, ease: 'power3' });
+    const ry = gsap.quickTo(el, 'rotationY', { duration: 0.6, ease: 'power3' });
+    gsap.set(el, { transformPerspective: 900 });
+    el.addEventListener('pointermove', e => {
+      const r = el.getBoundingClientRect();
+      ry(((e.clientX - r.left) / r.width - 0.5) * 5);
+      rx(-((e.clientY - r.top) / r.height - 0.5) * 5);
+    });
+    el.addEventListener('pointerleave', () => { rx(0); ry(0); });
+  });
+}
+
+/* ============================================================
+   HOW IT WORKS — pinned horizontal journey (desktop)
+============================================================ */
+const mm = gsap.matchMedia();
+mm.add('(min-width: 901px) and (prefers-reduced-motion: no-preference)', () => {
+  const rail = document.getElementById('rail');
+  const amt = () => rail.scrollWidth - innerWidth;
+  gsap.to(rail, {
+    x: () => -amt(), ease: 'none',
+    scrollTrigger: {
+      trigger: '#pinWrap', start: 'top top',
+      end: () => '+=' + amt(),
+      pin: true, scrub: 1, invalidateOnRefresh: true,
+      onUpdate: self => {
+        document.getElementById('hiwBar').style.transform = 'scaleX(' + self.progress + ')';
+      }
+    }
+  });
+});
+
+/* ============================================================
+   DASHBOARD — chart draw, feed, KPIs, tilt
+============================================================ */
+ScrollTrigger.create({
+  trigger: '#dashboard', start: 'top 62%', once: true,
+  onEnter() {
+    gsap.to('#chartLine', { strokeDashoffset: 0, duration: 2, ease: 'power2.inOut' });
+    gsap.to('#chartArea', { opacity: 1, duration: 1.4, delay: 0.7 });
+    gsap.to('.feed-item', { opacity: 1, x: 0, duration: 0.7, ease: 'power3.out', stagger: 0.13, delay: 0.3 });
+    document.querySelectorAll('.dash [data-count]').forEach(el => {
+      countUp(el, parseFloat(el.dataset.count), parseInt(el.dataset.dec || 0));
+    });
+  }
+});
+
+/* dashboard perspective tilt */
+if (!isTouch && !reduceMotion) {
+  const tiltZone = document.getElementById('dashTilt');
+  const dash = document.getElementById('dash');
+  const drx = gsap.quickTo(dash, 'rotationX', { duration: 0.9, ease: 'power3' });
+  const dry = gsap.quickTo(dash, 'rotationY', { duration: 0.9, ease: 'power3' });
+  tiltZone.addEventListener('pointermove', e => {
+    const r = tiltZone.getBoundingClientRect();
+    dry(((e.clientX - r.left) / r.width - 0.5) * 7);
+    drx(-((e.clientY - r.top) / r.height - 0.5) * 7);
+  });
+  tiltZone.addEventListener('pointerleave', () => { drx(0); dry(0); });
+}
+
+/* ============================================================
+   STATS — counters + rules
+============================================================ */
+document.querySelectorAll('.stats .stat').forEach(stat => {
+  ScrollTrigger.create({
+    trigger: stat, start: 'top 85%', once: true,
+    onEnter() {
+      stat.classList.add('in-view');
+      const el = stat.querySelector('[data-count]');
+      countUp(el, parseFloat(el.dataset.count), parseInt(el.dataset.dec || 0), 2.2);
+    }
+  });
+});
+
+/* ============================================================
+   TESTIMONIALS — velocity-reactive marquee
+============================================================ */
+const marqueeTweens = [];
+document.querySelectorAll('.t-marquee').forEach(track => {
+  track.innerHTML += track.innerHTML; /* seamless loop */
+  const dir = parseInt(track.dataset.dir);
+  const tween = dir === 1
+    ? gsap.fromTo(track, { xPercent: 0 }, { xPercent: -50, ease: 'none', duration: 46, repeat: -1 })
+    : gsap.fromTo(track, { xPercent: -50 }, { xPercent: 0, ease: 'none', duration: 46, repeat: -1 });
+  marqueeTweens.push(tween);
+});
+if (!reduceMotion && marqueeTweens.length) {
+  let boost = 1, target = 1;
+  ScrollTrigger.create({
+    start: 0, end: 'max',
+    onUpdate(self) {
+      target = gsap.utils.clamp(1, 3.6, 1 + Math.abs(self.getVelocity()) / 1400);
+    }
+  });
+  gsap.ticker.add(() => {
+    target += (1 - target) * 0.05;
+    boost += (target - boost) * 0.08;
+    marqueeTweens.forEach(tw => tw.timeScale(boost));
+  });
+}
+
+/* ============================================================
+   PRICING — billing toggle
+============================================================ */
+(function pricing(){
+  const toggle = document.getElementById('ptoggle');
+  let annual = false;
+  function render() {
+    toggle.classList.toggle('annual', annual);
+    toggle.querySelectorAll('.opt').forEach(o =>
+      o.classList.toggle('on', (o.dataset.opt === 'yr') === annual));
+    document.querySelectorAll('.plan .amt[data-mo]').forEach(amt => {
+      const from = parseFloat(amt.textContent) || 0;
+      const to = parseFloat(annual ? amt.dataset.yr : amt.dataset.mo);
+      const o = { v: from };
+      gsap.to(o, { v: to, duration: 0.55, ease: 'power2.out',
+        onUpdate: () => amt.textContent = Math.round(o.v) });
+    });
+    document.querySelectorAll('.plan .bill-note[data-note-mo]').forEach(n => {
+      n.textContent = annual ? n.dataset.noteYr : n.dataset.noteMo;
+    });
+  }
+  toggle.addEventListener('click', e => {
+    if (e.target.closest('.pt-switch') || e.target.closest('.opt')) {
+      const opt = e.target.closest('.opt');
+      annual = opt ? opt.dataset.opt === 'yr' : !annual;
+      render();
+    }
+  });
+})();
+
+/* ============================================================
+   FOOTER — big word parallax
+============================================================ */
+gsap.from('#bigWord', {
+  yPercent: 34, ease: 'none',
+  scrollTrigger: { trigger: 'footer', start: 'top bottom', end: 'bottom bottom', scrub: true }
+});
+
+/* keep measurements honest after fonts/layout settle */
+addEventListener('load', () => ScrollTrigger.refresh());
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => ScrollTrigger.refresh());
+
+})();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIKE MIND 001 — Feel the Ground. Find the Quiet.</title>
+<meta name="description" content="A cinematic concept film for the Nike Mind 001 — Nike's first neuroscience-based shoe. 22 sensory nodes that let your feet feel the ground, designed to bring calm and focus before and after competition. $95, released January 2026.">
+<meta property="og:title" content="NIKE MIND 001 — A Cinematic Concept Experience">
+<meta property="og:description" content="22 nodes. One quiet mind. An unofficial concept film for Nike's neuroscience-based mule.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◉</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Cormorant+Garamond:ital,wght@1,500;1,600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/lenis@1.1.14/dist/lenis.min.js"></script>
+<style>
+/* ================= TOKENS ================= */
+:root{
+  --bg:#030304;
+  --ink:#ececf2;
+  --mut:rgba(230,230,242,.55);
+  --dim:rgba(230,230,242,.32);
+  --faint:rgba(230,230,242,.16);
+  --line:rgba(255,255,255,.09);
+  --cyan:#4de3ff;
+  --violet:#8b5cff;
+  --pink:#ff4e9d;
+  --amber:#ffb545;
+  --mint:#37ffd0;
+  --volt:#d8ff3a;
+  --grad:linear-gradient(95deg,var(--cyan),var(--violet) 55%,var(--pink));
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+  --serif:'Cormorant Garamond',Georgia,serif;
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html.lenis,html.lenis body{height:auto}
+.lenis.lenis-smooth{scroll-behavior:auto!important}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Space Grotesk',system-ui,sans-serif;
+  font-size:16px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+::selection{background:var(--cyan);color:#001018}
+a{color:inherit;text-decoration:none}
+button{font:inherit;border:0;background:none;color:inherit;cursor:pointer}
+canvas{display:block}
+.serif{font-family:var(--serif);font-style:italic;font-weight:600;letter-spacing:0}
+.mono{font-family:var(--mono)}
+.grad-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* grain + scanlines */
+body::after{
+  content:"";position:fixed;inset:-50%;z-index:9985;pointer-events:none;opacity:.055;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation:grain 9s steps(10) infinite;
+}
+body::before{
+  content:"";position:fixed;inset:0;z-index:9984;pointer-events:none;opacity:.05;
+  background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,255,255,.35) 3px 4px);
+  mix-blend-mode:overlay;
+}
+@keyframes grain{
+  0%,100%{transform:translate(0,0)}10%{transform:translate(-4%,-6%)}30%{transform:translate(5%,-3%)}
+  50%{transform:translate(-6%,4%)}70%{transform:translate(4%,6%)}90%{transform:translate(-3%,2%)}
+}
+
+/* ================= WEBGL STAGE ================= */
+#stage{position:fixed;inset:0;z-index:1;pointer-events:none}
+#vignette{
+  position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(120% 90% at 50% 50%,transparent 55%,rgba(0,0,0,.55) 100%);
+}
+
+/* ================= LETTERBOX ================= */
+.lb{
+  position:fixed;left:0;right:0;z-index:9000;height:0;background:#000;overflow:hidden;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 clamp(16px,3vw,40px);
+  font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--dim);text-transform:uppercase;
+}
+#lbT{top:0}#lbB{bottom:0}
+.lb span{white-space:nowrap;opacity:0;transition:opacity .6s}
+.lb.open span{opacity:1}
+
+/* ================= HUD ================= */
+.hud{position:fixed;z-index:8900;font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--dim);text-transform:uppercase;pointer-events:none}
+.hud b{color:var(--mut);font-weight:500}
+#hudTL{top:calc(14px + var(--lbh,0px));left:18px}
+#hudTR{top:calc(14px + var(--lbh,0px));right:18px;text-align:right}
+#hudBL{bottom:calc(14px + var(--lbh,0px));left:18px}
+#hudBR{bottom:calc(14px + var(--lbh,0px));right:18px;text-align:right}
+.hud .live{display:inline-flex;align-items:center;gap:6px}
+.hud .live i{width:5px;height:5px;border-radius:50%;background:var(--pink);box-shadow:0 0 8px var(--pink);animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.25}}
+.corner{position:fixed;width:22px;height:22px;z-index:8900;pointer-events:none;opacity:.5}
+.corner::before,.corner::after{content:"";position:absolute;background:var(--dim)}
+.corner::before{width:100%;height:1px}
+.corner::after{width:1px;height:100%}
+#cTL{top:38px;left:38px}#cTL::before{top:0;left:0}#cTL::after{top:0;left:0}
+#cTR{top:38px;right:38px}#cTR::before{top:0;right:0}#cTR::after{top:0;right:0}
+#cBL{bottom:38px;left:38px}#cBL::before{bottom:0;left:0}#cBL::after{bottom:0;left:0}
+#cBR{bottom:38px;right:38px}#cBR::before{bottom:0;right:0}#cBR::after{bottom:0;right:0}
+
+/* chapter rail */
+#chapterRail{
+  position:fixed;left:22px;top:50%;transform:translateY(-50%);z-index:8900;
+  display:flex;flex-direction:column;gap:14px;align-items:flex-start;pointer-events:none;
+}
+#chapterRail .tick{display:flex;align-items:center;gap:10px}
+#chapterRail .tick i{width:14px;height:1px;background:var(--faint);transition:all .5s var(--ease)}
+#chapterRail .tick span{
+  font-family:var(--mono);font-size:9px;letter-spacing:.26em;color:transparent;text-transform:uppercase;
+  transition:color .5s;white-space:nowrap;
+}
+#chapterRail .tick.on i{width:30px;background:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+#chapterRail .tick.on span{color:var(--mut)}
+@media (max-width:1000px){#chapterRail,.corner,#hudBL,#hudTL{display:none}}
+@media (max-width:700px){#hudTR,#hudBR{display:none}}
+
+/* ================= CURSOR — crosshair ================= */
+#xh{position:fixed;top:0;left:0;z-index:9999;pointer-events:none;will-change:transform}
+#xh .h,#xh .v{position:absolute;background:rgba(236,236,242,.75)}
+#xh .h{width:26px;height:1px;left:-13px;top:0}
+#xh .v{width:1px;height:26px;top:-13px;left:0}
+#xh .ring{
+  position:absolute;width:34px;height:34px;left:-17px;top:-17px;border-radius:50%;
+  border:1px dashed rgba(236,236,242,.28);
+  transition:transform .5s var(--ease),border-color .5s;
+}
+#xh.hot .ring{transform:scale(1.7) rotate(90deg);border-color:var(--cyan)}
+#xh.hot .h,#xh.hot .v{background:var(--cyan)}
+#xhCo{
+  position:fixed;top:0;left:0;z-index:9999;pointer-events:none;
+  font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--dim);
+  transform:translate(16px,18px);white-space:nowrap;
+}
+@media (hover:none),(max-width:900px){#xh,#xhCo{display:none}}
+html{cursor:none}
+@media (hover:none),(max-width:900px){html{cursor:auto}}
+
+/* ================= BOOT / PRELOADER ================= */
+#boot{
+  position:fixed;inset:0;z-index:10000;background:#010102;
+  display:flex;align-items:center;justify-content:center;
+}
+#boot .box{width:min(520px,86vw);font-family:var(--mono)}
+#boot .id{font-size:10px;letter-spacing:.34em;color:var(--dim);text-transform:uppercase;margin-bottom:18px;display:flex;justify-content:space-between}
+#boot .log{font-size:11.5px;line-height:2.1;color:var(--mut);min-height:130px}
+#boot .log div{opacity:0}
+#boot .log .ok{color:var(--mint)}
+#boot .log .warn{color:var(--amber)}
+#boot .pct{
+  margin-top:22px;font-size:clamp(44px,8vw,72px);font-weight:700;letter-spacing:-.04em;
+  font-family:'Space Grotesk',sans-serif;font-variant-numeric:tabular-nums;
+  display:flex;align-items:baseline;gap:12px;
+}
+#boot .pct em{font-style:normal;font-family:var(--mono);font-size:10px;letter-spacing:.3em;color:var(--dim)}
+#boot .bar{margin-top:14px;height:1px;background:rgba(255,255,255,.1);overflow:hidden}
+#boot .bar i{display:block;height:100%;width:0%;background:var(--grad)}
+
+/* ================= SHARED SECTION SHELL ================= */
+main{position:relative;z-index:3}
+.scene{position:relative;min-height:100svh;display:flex;align-items:center;padding:14vh clamp(20px,6vw,90px)}
+.scene .inner{max-width:1200px;margin:0 auto;width:100%;position:relative}
+.scrim{position:absolute;inset:-8% -12%;z-index:-1;background:radial-gradient(60% 60% at 50% 50%,rgba(3,3,5,.72),transparent 75%)}
+.slate{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);
+  display:flex;align-items:center;gap:14px;margin-bottom:26px;
+}
+.slate::before{content:"";width:34px;height:1px;background:var(--grad)}
+.slate b{color:var(--cyan);font-weight:500}
+.h-scene{font-size:clamp(34px,5.4vw,72px);font-weight:600;letter-spacing:-.03em;line-height:1.04}
+.h-scene .serif{font-weight:600;font-size:1.06em}
+.reveal{opacity:0;transform:translateY(44px)}
+.lead{color:var(--mut);font-size:clamp(15.5px,1.5vw,18.5px);max-width:560px;margin-top:22px}
+
+/* ================= HERO ================= */
+#hero{min-height:100svh}
+#hero .inner{text-align:center}
+.file-tag{
+  display:inline-flex;align-items:center;gap:12px;padding:9px 18px;border:1px solid var(--line);
+  font-family:var(--mono);font-size:10px;letter-spacing:.32em;text-transform:uppercase;color:var(--mut);
+  background:rgba(3,3,5,.5);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+}
+.file-tag i{width:6px;height:6px;background:var(--pink);border-radius:50%;box-shadow:0 0 10px var(--pink);animation:blink 1.4s infinite}
+#hero h1{
+  margin-top:36px;font-weight:700;line-height:.86;letter-spacing:-.045em;
+  font-size:clamp(74px,15.5vw,220px);position:relative;
+}
+#hero h1 .row{display:block;overflow:hidden}
+#hero h1 .word{display:inline-block;transform:translateY(112%);will-change:transform}
+#hero h1 .num{
+  -webkit-text-stroke:1.5px rgba(236,236,242,.34);color:transparent;
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;
+}
+#hero .logline{
+  margin:34px auto 0;max-width:520px;font-size:clamp(17px,2vw,22px);color:var(--mut);line-height:1.55;
+}
+#hero .logline .serif{color:var(--ink);font-size:1.12em}
+#hero .film-meta{
+  margin-top:30px;display:flex;justify-content:center;gap:26px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--dim);
+}
+#hero .film-meta span{display:flex;gap:8px;align-items:center}
+#hero .film-meta i{width:4px;height:4px;border-radius:50%;background:var(--cyan)}
+#hero .cta-row{margin-top:44px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+.btn{
+  position:relative;display:inline-flex;align-items:center;gap:12px;padding:16px 30px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;font-weight:500;
+  border:1px solid var(--line);color:var(--ink);overflow:hidden;isolation:isolate;
+  transition:border-color .4s,color .4s;will-change:transform;background:rgba(3,3,5,.4);
+}
+.btn::before{
+  content:"";position:absolute;inset:0;z-index:-1;background:var(--grad);
+  transform:scaleY(0);transform-origin:50% 100%;transition:transform .45s var(--ease);
+}
+.btn:hover{border-color:transparent;color:#04040a}
+.btn:hover::before{transform:scaleY(1)}
+.btn .tick{transition:transform .35s var(--ease)}
+.btn:hover .tick{transform:translateX(5px)}
+.btn-solid{background:var(--ink);color:#04040a;border-color:var(--ink)}
+.btn-solid:hover{color:#04040a}
+#hero .cue{
+  position:absolute;bottom:calc(30px + var(--lbh,0px));left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;gap:10px;align-items:center;
+  font-family:var(--mono);font-size:9px;letter-spacing:.34em;color:var(--dim);text-transform:uppercase;
+}
+#hero .cue .wheel{width:1px;height:46px;background:var(--faint);position:relative;overflow:hidden}
+#hero .cue .wheel::after{content:"";position:absolute;left:0;top:-40%;width:100%;height:40%;background:var(--grad);animation:cue 2s var(--ease) infinite}
+@keyframes cue{to{top:120%}}
+/* ================= CH.01 AWAKENING — manifesto ================= */
+#sensation p{
+  font-size:clamp(26px,3.9vw,52px);font-weight:500;letter-spacing:-.02em;line-height:1.34;max-width:1060px;
+}
+#sensation .w{opacity:.12;display:inline-block;will-change:opacity}
+#sensation .serif{font-size:1.08em}
+#sensation .stamp{
+  margin-top:44px;display:inline-block;padding:10px 16px;border:1px dashed rgba(255,181,69,.4);
+  font-family:var(--mono);font-size:10px;letter-spacing:.28em;text-transform:uppercase;color:var(--amber);
+  transform:rotate(-1.6deg);
+}
+
+/* ================= CH.02 ARCHITECTURE ================= */
+.readouts{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:56px}
+.readout{background:#040407;padding:30px 26px;position:relative;overflow:hidden;transition:background .5s}
+.readout:hover{background:#07070d}
+.readout .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--dim);margin-bottom:16px;display:flex;justify-content:space-between}
+.readout .k i{color:var(--cyan);font-style:normal}
+.readout .v{font-size:clamp(30px,3.2vw,44px);font-weight:700;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums;display:flex;align-items:baseline;gap:4px}
+.readout .v .suf{font-size:.42em;color:var(--cyan);font-family:var(--mono);letter-spacing:.08em}
+.readout .d{margin-top:12px;font-size:12.5px;color:var(--mut);line-height:1.5}
+.readout .scan{position:absolute;left:0;right:0;height:1px;top:0;background:var(--grad);opacity:0;transition:opacity .4s}
+.readout:hover .scan{opacity:.7;animation:scanY 1.6s linear infinite}
+@keyframes scanY{from{top:0}to{top:100%}}
+@media (max-width:980px){.readouts{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:540px){.readouts{grid-template-columns:1fr}}
+.fig-note{
+  margin-top:34px;display:flex;gap:16px;align-items:flex-start;max-width:520px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--dim);line-height:1.9;
+}
+.fig-note::before{content:"FIG.02";color:var(--cyan);letter-spacing:.26em;flex-shrink:0;margin-top:1px}
+
+/* ================= CH.03 MEMORY — pinned horizontal logs ================= */
+#ritual{padding:0}
+#ritual .pin-wrap{overflow:hidden;position:relative}
+#ritual .head-fixed{
+  position:absolute;top:12vh;left:clamp(20px,6vw,90px);z-index:5;max-width:480px;
+}
+#ritual .rail{display:flex;align-items:center;gap:clamp(20px,3vw,44px);width:max-content;
+  padding:0 8vw;min-height:100svh;padding-top:16vh;
+}
+.log-card{
+  width:min(420px,78vw);flex-shrink:0;border:1px solid var(--line);background:rgba(5,5,9,.72);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  padding:30px;position:relative;
+  transition:border-color .5s,transform .5s var(--ease);
+}
+.log-card:hover{border-color:rgba(139,92,255,.5);transform:translateY(-6px)}
+.log-card .lid{
+  display:flex;justify-content:space-between;font-family:var(--mono);
+  font-size:9.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--dim);margin-bottom:22px;
+}
+.log-card .lid b{color:var(--violet);font-weight:500}
+.log-card p{font-size:17.5px;line-height:1.6;color:var(--ink);font-weight:400}
+.log-card p .serif{font-size:1.1em}
+.log-card .foot{margin-top:24px;font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim)}
+.log-card.redacted{border-style:dashed;border-color:rgba(255,181,69,.35)}
+.log-card.redacted p{color:var(--amber);font-family:var(--mono);font-size:13px;letter-spacing:.2em;line-height:2.1}
+.log-card .bar-red{background:var(--amber);color:transparent;user-select:none}
+#ritual .hprog{
+  position:absolute;bottom:40px;left:50%;transform:translateX(-50%);z-index:5;
+  display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:9.5px;letter-spacing:.3em;color:var(--dim);
+}
+#ritual .hprog .track{width:180px;height:1px;background:var(--faint);position:relative}
+#ritual .hprog .track i{position:absolute;inset:0;transform-origin:0 50%;transform:scaleX(0);background:var(--grad)}
+@media (max-width:900px){
+  #ritual .rail{display:block;width:auto;padding:26vh clamp(20px,6vw,90px) 12vh;min-height:0}
+  .log-card{width:100%;margin-bottom:18px}
+  #ritual .head-fixed{position:relative;top:auto;left:auto;padding:14vh clamp(20px,6vw,90px) 0}
+  #ritual .hprog{display:none}
+}
+
+/* ================= CH.04 DREAMS ================= */
+#calm{min-height:130svh;text-align:center}
+#calm .poem{font-family:var(--serif);font-size:clamp(34px,5.6vw,74px);line-height:1.25;letter-spacing:-.01em}
+#calm .poem .l{display:block;overflow:hidden}
+#calm .poem .li{display:inline-block;transform:translateY(112%)}
+#calm .after{
+  margin-top:34px;font-family:var(--mono);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--dim);
+  opacity:0;
+}
+#calm .after b{color:var(--cyan);font-weight:500}
+
+/* ================= CH.05 DIALOGUE — terminal ================= */
+.term{
+  max-width:760px;margin:0 auto;border:1px solid var(--line);background:rgba(3,4,6,.82);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+.term .tbar{
+  display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--dim);
+}
+.term .tbar .dots{display:flex;gap:6px}
+.term .tbar .dots i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.12)}
+.term .tbody{padding:30px clamp(18px,3vw,36px);font-family:var(--mono);font-size:clamp(12.5px,1.35vw,14.5px);line-height:2.2}
+.term .row{display:flex;gap:14px;min-height:2.2em}
+.term .who{flex-shrink:0;width:92px;color:var(--dim);font-size:.85em;letter-spacing:.14em;padding-top:.18em}
+.term .row.op .who{color:var(--mut)}
+.term .row.ai .who{color:var(--mint)}
+.term .txt{color:var(--mut);white-space:pre-wrap}
+.term .row.ai .txt{color:var(--ink)}
+.term .caret{display:inline-block;width:8px;height:1.15em;background:var(--mint);vertical-align:text-bottom;animation:blink 1s steps(1) infinite;margin-left:2px}
+
+/* ================= COLORWAYS ================= */
+#colorways .cw-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line);border:1px solid var(--line);margin-top:52px}
+.cw{
+  background:#040407;padding:30px 26px;text-align:left;position:relative;overflow:hidden;
+  transition:background .5s;display:block;width:100%;
+}
+.cw:hover{background:#07070d}
+.cw .sw{
+  width:44px;height:44px;border-radius:50%;margin-bottom:20px;position:relative;
+  border:1px solid var(--line);
+}
+.cw .sw::after{
+  content:"";position:absolute;inset:-7px;border-radius:50%;border:1px dashed var(--faint);
+  transition:border-color .4s,transform .6s var(--ease);
+}
+.cw.on .sw::after{border-color:var(--cyan);transform:rotate(120deg)}
+.cw .cw-name{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.cw .cw-code{font-family:var(--mono);font-size:10px;letter-spacing:.22em;color:var(--dim);margin-top:5px;text-transform:uppercase}
+.cw .cw-link{
+  margin-top:20px;display:inline-flex;gap:8px;align-items:center;
+  font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--mut);
+  border-bottom:1px solid var(--faint);padding-bottom:4px;transition:color .3s,border-color .3s;
+}
+.cw .cw-link:hover{color:var(--cyan);border-color:var(--cyan)}
+.cw .eq{
+  position:absolute;top:26px;right:24px;display:flex;gap:3px;align-items:flex-end;height:14px;opacity:0;
+  transition:opacity .4s;
+}
+.cw.on .eq{opacity:1}
+.cw .eq i{width:2px;background:var(--cyan);animation:eq 1s ease-in-out infinite alternate}
+.cw .eq i:nth-child(1){height:60%}.cw .eq i:nth-child(2){height:100%;animation-delay:.15s}.cw .eq i:nth-child(3){height:40%;animation-delay:.3s}
+@keyframes eq{from{transform:scaleY(.3)}to{transform:scaleY(1)}}
+@media (max-width:900px){#colorways .cw-grid{grid-template-columns:1fr}}
+#colorways .more{
+  margin-top:26px;font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);
+}
+#colorways .more a{color:var(--mut);border-bottom:1px solid var(--faint);padding-bottom:3px;transition:color .3s}
+#colorways .more a:hover{color:var(--cyan)}
+
+/* ================= ACCESS / CTA ================= */
+#access{text-align:center;min-height:110svh}
+#access h2{font-size:clamp(40px,6.6vw,92px);font-weight:600;letter-spacing:-.035em;line-height:1.04;max-width:940px;margin:0 auto}
+#access .lead{margin-left:auto;margin-right:auto;text-align:center}
+#access .cta-row{margin-top:46px;display:flex;gap:16px;justify-content:center;flex-wrap:wrap}
+#access .note{
+  margin-top:26px;font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--dim);
+}
+#access .note b{color:var(--mut);font-weight:500}
+
+/* ================= FOOTER — credits ================= */
+footer{position:relative;z-index:3;border-top:1px solid var(--line);background:rgba(2,2,3,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.credits{
+  max-width:760px;margin:0 auto;padding:clamp(70px,9vw,120px) 24px 40px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+}
+.credits .crow{
+  display:flex;justify-content:space-between;gap:20px;padding:13px 4px;border-bottom:1px dashed rgba(255,255,255,.07);
+  color:var(--dim);
+}
+.credits .crow b{color:var(--mut);font-weight:500;text-align:right}
+.credits .title{
+  text-align:center;margin-bottom:34px;font-size:10px;letter-spacing:.4em;color:var(--dim);
+}
+.bignum{
+  text-align:center;font-size:clamp(120px,24vw,340px);font-weight:700;line-height:.8;letter-spacing:-.02em;
+  -webkit-text-stroke:1.5px rgba(236,236,242,.16);color:transparent;user-select:none;
+  padding:50px 0 0;font-variant-numeric:tabular-nums;
+}
+.foot-end{
+  display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;max-width:1200px;margin:0 auto;
+  padding:24px clamp(20px,5vw,60px) 30px;font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--dim);
+}
+.foot-end a:hover{color:var(--ink)}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+<noscript><style>
+#boot,#xh,#xhCo{display:none!important}
+.reveal,#sensation .w,#calm .after{opacity:1!important;transform:none!important}
+#hero h1 .word,#calm .poem .li{transform:none!important}
+html{cursor:auto}
+</style></noscript>
+</head>
+<body>
+<!-- BOOT -->
+<div id="boot">
+  <div class="box">
+    <div class="id"><span>NIKE MIND 001</span><span>CONCEPT FILM</span></div>
+    <div class="log" id="bootLog">
+      <div>&gt; mounting sole lattice…</div>
+      <div>&gt; waking 22 sensory nodes… <span class="ok">OK</span></div>
+      <div>&gt; mapping plantar pressure…</div>
+      <div class="warn">&gt; WARNING: ground feel imminent</div>
+      <div>&gt; mind–body link <span class="ok">ONLINE</span></div>
+    </div>
+    <div class="pct"><span id="bootPct">00</span><em>PERCENT AWAKE</em></div>
+    <div class="bar"><i id="bootBar"></i></div>
+  </div>
+</div>
+
+<!-- LETTERBOX -->
+<div class="lb" id="lbT"><span>NIKE MIND 001 — A CONCEPT FILM</span><span>REEL 001</span></div>
+<div class="lb" id="lbB"><span>FEEL THE GROUND</span><span>FIND THE QUIET</span></div>
+
+<!-- WEBGL STAGE -->
+<canvas id="stage"></canvas>
+<div id="vignette"></div>
+
+<!-- HUD -->
+<div class="hud" id="hudTL"><b>MIND 001</b> · HQ4307 · MULE</div>
+<div class="hud" id="hudTR"><span class="live"><i></i>LIVE</span> &nbsp; <span id="hudClock">00:00:00</span></div>
+<div class="hud" id="hudBL">SCROLL <b id="hudScroll">000</b>%</div>
+<div class="hud" id="hudBR">22 NODES · $95 · JAN 2026</div>
+<i class="corner" id="cTL"></i><i class="corner" id="cTR"></i><i class="corner" id="cBL"></i><i class="corner" id="cBR"></i>
+
+<!-- CHAPTER RAIL -->
+<div id="chapterRail">
+  <div class="tick" data-ch="hero"><i></i><span>000 — TITLE</span></div>
+  <div class="tick" data-ch="sensation"><i></i><span>001 — SENSATION</span></div>
+  <div class="tick" data-ch="science"><i></i><span>002 — SCIENCE</span></div>
+  <div class="tick" data-ch="ritual"><i></i><span>003 — RITUAL</span></div>
+  <div class="tick" data-ch="calm"><i></i><span>004 — CALM</span></div>
+  <div class="tick" data-ch="colorways"><i></i><span>005 — COLOR</span></div>
+  <div class="tick" data-ch="access"><i></i><span>006 — ACCESS</span></div>
+</div>
+
+<!-- CURSOR -->
+<div id="xh"><span class="h"></span><span class="v"></span><span class="ring"></span></div>
+<div id="xhCo">X:0000 Y:0000</div>
+
+<main>
+
+<!-- ============ 000 · HERO ============ -->
+<section class="scene" id="hero">
+  <div class="inner">
+    <div class="file-tag reveal-hero"><i></i> NIKE'S FIRST NEUROSCIENCE SHOE — ON FEET NOW</div>
+    <h1 aria-label="MIND 001">
+      <span class="row"><span class="word">MIND</span></span>
+      <span class="row"><span class="word num">001</span></span>
+    </h1>
+    <p class="logline reveal-hero">Twenty-two nodes that let your feet <em class="serif grad-text">feel the ground</em> — and your mind find the quiet.</p>
+    <div class="film-meta reveal-hero">
+      <span><i></i>FORMAT — MULE</span>
+      <span><i></i>RETAIL — $95</span>
+      <span><i></i>DEV TIME — 10+ YEARS</span>
+      <span><i></i>RELEASED — JAN 2026</span>
+    </div>
+    <div class="cta-row reveal-hero">
+      <a class="btn btn-solid" href="https://www.nike.com/mind" target="_blank" rel="noopener noreferrer" data-magnetic data-hover>Shop at Nike.com <span class="tick">↗</span></a>
+      <a class="btn" href="#science" data-magnetic data-hover>Read the science <span class="tick">↓</span></a>
+    </div>
+  </div>
+  <div class="cue"><div class="wheel"></div>Begin</div>
+</section>
+
+<!-- ============ 001 · SENSATION ============ -->
+<section class="scene" id="sensation">
+  <div class="inner">
+    <div class="scrim"></div>
+    <div class="slate"><b>CH.001</b> SENSATION</div>
+    <p id="manifesto">For fifty years, shoes tried to make you feel nothing. Foam over foam over foam. Mind 001 does the opposite — twenty-two independent nodes press the <em class="serif grad-text">texture of the world</em> back into your feet. Because a mind that can feel the ground <em class="serif">doesn't wander.</em></p>
+    <div class="stamp reveal">NIKE CLAIM — NODES ACTIVATE SENSORY REGIONS OF THE BRAIN</div>
+  </div>
+</section>
+
+<!-- ============ 002 · SCIENCE ============ -->
+<section class="scene" id="science">
+  <div class="inner">
+    <div class="scrim"></div>
+    <div class="slate"><b>CH.002</b> THE SCIENCE</div>
+    <h2 class="h-scene reveal">Engineered <em class="serif grad-text">underfoot.</em></h2>
+    <p class="lead reveal">Each node is bonded to a flexible, water-resistant membrane — free to move like a piston, tilt like a gimbal, and report the ground beneath you.</p>
+
+    <div class="readouts">
+      <div class="readout reveal"><i class="scan"></i>
+        <div class="k">SENSORY NODES <i>PER SHOE</i></div>
+        <div class="v"><span data-count="22">0</span></div>
+        <div class="d">Independent foam pistons + gimbals, mapped to plantar pressure points.</div>
+      </div>
+      <div class="readout reveal"><i class="scan"></i>
+        <div class="k">DEVELOPMENT <i>YEARS</i></div>
+        <div class="v"><span data-count="10">0</span><span class="suf">+ YRS</span></div>
+        <div class="d">A decade of research into how the soles of your feet talk to your brain.</div>
+      </div>
+      <div class="readout reveal"><i class="scan"></i>
+        <div class="k">RETAIL <i>USD</i></div>
+        <div class="v"><span class="suf" style="font-size:.6em">$</span><span data-count="95">0</span></div>
+        <div class="d">Calm, focus and presence — priced like a pair of trainers.</div>
+      </div>
+      <div class="readout reveal"><i class="scan"></i>
+        <div class="k">SYSTEM <i>OF 2</i></div>
+        <div class="v"><span data-count="1" data-pad="3">000</span></div>
+        <div class="d">First of a two-shoe line. <a href="https://about.nike.com/en/newsroom/releases/nike-mind-001-mind-002-official-images" target="_blank" rel="noopener noreferrer" data-hover style="color:var(--cyan)">Meet Mind 002 ↗</a></div>
+      </div>
+    </div>
+
+    <div class="fig-note reveal">UNDERFOOT STIMULATION ACTIVATES KEY SENSORY AREAS OF THE BRAIN — HEIGHTENED AWARENESS CLEARS DISTRACTION AND SHARPENS FOCUS, PER NIKE'S RESEARCH TEAM.</div>
+
+    <!-- node diagnostics terminal -->
+    <div class="term reveal" style="margin-top:60px">
+      <div class="tbar"><span>NODE DIAGNOSTICS — LIVE</span><div class="dots"><i></i><i></i><i></i></div></div>
+      <div class="tbody" id="termBody">
+        <div class="row op"><span class="who">LAB&nbsp;//</span><span class="txt" data-type="status check. all nodes report."></span></div>
+        <div class="row ai"><span class="who">M001 //</span><span class="txt" data-type="22 of 22 awake. heel cluster warm. toe cluster listening."></span></div>
+        <div class="row op"><span class="who">LAB&nbsp;//</span><span class="txt" data-type="and the athlete?"></span></div>
+        <div class="row ai"><span class="who">M001 //</span><span class="txt" data-type="heart rate settling. ground located. we are present."></span><span class="caret" id="termCaret" style="opacity:0"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 003 · RITUAL — pinned horizontal ============ -->
+<section id="ritual">
+  <div class="pin-wrap" id="pinWrap">
+    <div class="head-fixed">
+      <div class="slate"><b>CH.003</b> THE RITUAL</div>
+      <h2 class="h-scene reveal">Before. <em class="serif grad-text">After.</em><br>Never during.</h2>
+    </div>
+    <div class="rail" id="rail">
+      <div class="log-card reveal">
+        <div class="lid"><b>T-40 MIN</b><span>TUNNEL</span></div>
+        <p>Warm-up done. Spikes wait in the bag. Nodes on. The noise of the stadium gets <em class="serif">quieter underfoot.</em></p>
+        <div class="foot">PRE-COMPETITION · LOCK-IN</div>
+      </div>
+      <div class="log-card reveal">
+        <div class="lid"><b>T-05 MIN</b><span>CONCRETE</span></div>
+        <p>The toe cluster reads the cold floor of the corridor. Heart settles. The plan repeats itself once, <em class="serif">clearly.</em></p>
+        <div class="foot">PRE-COMPETITION · FOCUS</div>
+      </div>
+      <div class="log-card reveal">
+        <div class="lid"><b>T+00</b><span>FINAL WHISTLE</span></div>
+        <p>Adrenaline with nowhere left to go. Slip them on. Let the ground <em class="serif">carry it away.</em></p>
+        <div class="foot">POST-COMPETITION · DECOMPRESS</div>
+      </div>
+      <div class="log-card reveal">
+        <div class="lid"><b>DAY +1</b><span>FILM ROOM</span></div>
+        <p>Recovery day. Twenty-two small pressure points remind the body it already knows how to be <em class="serif">still.</em></p>
+        <div class="foot">RECOVERY · RESET</div>
+      </div>
+      <div class="log-card redacted reveal">
+        <div class="lid"><b>WEAR NOTE</b><span>NIKE</span></div>
+        <p>DESIGNED FOR BEFORE &amp; AFTER COMPETITION — <span class="bar-red">NOT FOR</span> THE RACE ITSELF. THE RACE IS YOURS.</p>
+        <div class="foot">USAGE PROTOCOL · 001</div>
+      </div>
+    </div>
+    <div class="hprog"><span>PRE</span><div class="track"><i id="hiwBar"></i></div><span>POST</span></div>
+  </div>
+</section>
+
+<!-- ============ 004 · CALM ============ -->
+<section class="scene" id="calm">
+  <div class="inner">
+    <div class="poem">
+      <span class="l"><span class="li">Feel the ground.</span></span>
+      <span class="l"><span class="li grad-text">Find the quiet.</span></span>
+    </div>
+    <div class="after">A DECADE OF NEUROSCIENCE · <b>22 POINTS OF CONTACT</b> · ONE PRESENT MIND</div>
+  </div>
+</section>
+
+<!-- ============ 005 · COLORWAYS ============ -->
+<section class="scene" id="colorways">
+  <div class="inner">
+    <div class="scrim"></div>
+    <div class="slate"><b>CH.005</b> COLORWAYS</div>
+    <h2 class="h-scene reveal">Three states of <em class="serif grad-text">mind.</em></h2>
+    <p class="lead reveal">Select a state — the specimen re-skins itself. Every pair links to the real drop.</p>
+
+    <div class="cw-grid">
+      <div class="cw on reveal" data-cw="0" data-hover role="button" tabindex="0" aria-label="Select Light Smoke Grey colorway">
+        <div class="eq"><i></i><i></i><i></i></div>
+        <div class="sw" style="background:linear-gradient(135deg,#c9cdd6,#8f95a3)"></div>
+        <div class="cw-name">Light Smoke Grey</div>
+        <div class="cw-code">HQ4307-003 · OG PAIR</div>
+        <a class="cw-link" href="https://stockx.com/nike-mind-001-slide-light-smoke-grey" target="_blank" rel="noopener noreferrer" data-hover>Get it on StockX ↗</a>
+      </div>
+      <div class="cw reveal" data-cw="1" data-hover role="button" tabindex="0" aria-label="Select Triple Black colorway">
+        <div class="eq"><i></i><i></i><i></i></div>
+        <div class="sw" style="background:linear-gradient(135deg,#26262c,#0a0a0d)"></div>
+        <div class="cw-name">Triple Black</div>
+        <div class="cw-code">HQ4307-005 · RESTOCK</div>
+        <a class="cw-link" href="https://wwd.com/footwear-news/sneaker-news/nike-mind-001-triple-black-release-date-hq4307-005-1238998552/" target="_blank" rel="noopener noreferrer" data-hover>Release intel ↗</a>
+      </div>
+      <div class="cw reveal" data-cw="2" data-hover role="button" tabindex="0" aria-label="Select Flyknit Blue colorway">
+        <div class="eq"><i></i><i></i><i></i></div>
+        <div class="sw" style="background:linear-gradient(135deg,#5f8dff,#2a4fd4)"></div>
+        <div class="cw-name">Flyknit Blue</div>
+        <div class="cw-code">IR2175-400 · FLEX TONGUE</div>
+        <a class="cw-link" href="https://wwd.com/footwear-news/sneaker-news/nike-mind-001-flyknit-release-date-ir2175-400-1238977351/" target="_blank" rel="noopener noreferrer" data-hover>Release intel ↗</a>
+      </div>
+    </div>
+
+    <div class="more reveal">EVERY 2026 DROP, TRACKED LIVE → <a href="https://www.soleretriever.com/sneaker-release-dates/nike/mind" target="_blank" rel="noopener noreferrer" data-hover>SOLE RETRIEVER</a> · <a href="https://www.sneakerfreaker.com/features/every-nike-mind-001-releasing-2026-price-buy" target="_blank" rel="noopener noreferrer" data-hover>SNEAKER FREAKER</a></div>
+  </div>
+</section>
+
+<!-- ============ 006 · ACCESS ============ -->
+<section class="scene" id="access">
+  <div class="inner">
+    <div class="scrim"></div>
+    <div class="slate" style="justify-content:center"><b>CH.006</b> ACCESS</div>
+    <h2 class="reveal">Calm is finally <em class="serif grad-text">in stock.</em></h2>
+    <p class="lead reveal">$95. Slip-on. Twenty-two reasons to stop thinking about your feet — and start feeling the floor.</p>
+    <div class="cta-row reveal">
+      <a class="btn btn-solid" href="https://www.nike.com/mind" target="_blank" rel="noopener noreferrer" data-magnetic data-hover>Nike.com/Mind <span class="tick">↗</span></a>
+      <a class="btn" href="https://www.footlocker.com/product/model/nike-mind-001-mule-mens/465505.html" target="_blank" rel="noopener noreferrer" data-magnetic data-hover>Foot Locker <span class="tick">↗</span></a>
+      <a class="btn" href="https://stockx.com/nike-mind-001-slide-light-smoke-grey" target="_blank" rel="noopener noreferrer" data-magnetic data-hover>StockX <span class="tick">↗</span></a>
+    </div>
+    <div class="note reveal">SELL-OUT WARNING — THE FIRST RUN <b>VANISHED</b> · ON-FOOT REVIEW AT <a href="https://www.complex.com/sneakers/a/ben-felderstein/nike-mind-001-002-review" target="_blank" rel="noopener noreferrer" data-hover style="color:var(--mut);border-bottom:1px solid var(--faint)">COMPLEX ↗</a></div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ FOOTER — CREDITS ============ -->
+<footer>
+  <div class="credits">
+    <div class="title">— END CREDITS —</div>
+    <div class="crow"><span>Subject</span><b>NIKE MIND 001 MULE</b></div>
+    <div class="crow"><span>Technology</span><b>22 SENSORY FOAM NODES</b></div>
+    <div class="crow"><span>Claim</span><b>CALM · FOCUS · PRESENCE</b></div>
+    <div class="crow"><span>Official page</span><b><a href="https://www.nike.com/mind" target="_blank" rel="noopener noreferrer" data-hover>NIKE.COM/MIND ↗</a></b></div>
+    <div class="crow"><span>Announcement</span><b><a href="https://about.nike.com/en/newsroom/releases/nike-mind-001-mind-002-official-images" target="_blank" rel="noopener noreferrer" data-hover>NIKE NEWSROOM ↗</a></b></div>
+    <div class="crow"><span>On-foot review</span><b><a href="https://www.complex.com/sneakers/a/ben-felderstein/nike-mind-001-002-review" target="_blank" rel="noopener noreferrer" data-hover>COMPLEX ↗</a></b></div>
+    <div class="crow"><span>Release radar</span><b><a href="https://www.soleretriever.com/sneaker-release-dates/nike/mind" target="_blank" rel="noopener noreferrer" data-hover>SOLE RETRIEVER ↗</a></b></div>
+    <div class="crow"><span>Drop history</span><b><a href="https://www.sneakerfreaker.com/features/every-nike-mind-001-releasing-2026-price-buy" target="_blank" rel="noopener noreferrer" data-hover>SNEAKER FREAKER ↗</a></b></div>
+  </div>
+  <div class="bignum" id="bigNum">001</div>
+  <div class="foot-end">
+    <span>UNOFFICIAL FAN CONCEPT — NOT AFFILIATED WITH NIKE, INC.</span>
+    <span>NIKE, MIND 001 &amp; SWOOSH ARE TRADEMARKS OF NIKE, INC.</span>
+    <a href="#hero" data-hover>BACK TO TITLE ↑</a>
+  </div>
+</footer>
+<script>
+(function(){
+'use strict';
+
+/* ---------- CDN failure safety ---------- */
+if (!window.gsap) {
+  document.querySelectorAll('.reveal,.reveal-hero,#calm .after').forEach(function(el){ el.style.opacity=1; el.style.transform='none'; });
+  document.querySelectorAll('#hero h1 .word,#calm .poem .li').forEach(function(el){ el.style.transform='none'; });
+  var b=document.getElementById('boot'); if(b) b.style.display='none';
+  document.documentElement.style.cursor='auto';
+  var xh=document.getElementById('xh'); if(xh) xh.style.display='none';
+  var xc=document.getElementById('xhCo'); if(xc) xc.style.display='none';
+  document.querySelectorAll('.term .txt').forEach(function(el){ el.textContent = el.dataset.type; });
+  return;
+}
+
+gsap.registerPlugin(ScrollTrigger);
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isTouch = matchMedia('(hover: none)').matches || 'ontouchstart' in window;
+
+/* ============ SMOOTH SCROLL ============ */
+let lenis = null;
+if (window.Lenis && !reduceMotion) {
+  lenis = new Lenis({ duration: 1.2, smoothWheel: true });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add(t => lenis.raf(t * 1000));
+  gsap.ticker.lagSmoothing(0);
+}
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const href = a.getAttribute('href');
+    if (href.length > 1) {
+      e.preventDefault();
+      const el = document.querySelector(href);
+      if (el) { if (lenis) lenis.scrollTo(el, { duration: 1.5 }); else el.scrollIntoView({ behavior: 'smooth' }); }
+    } else e.preventDefault();
+  });
+});
+
+/* ============ CROSSHAIR CURSOR ============ */
+if (!isTouch) {
+  const xh = document.getElementById('xh'), co = document.getElementById('xhCo');
+  let mx = innerWidth/2, my = innerHeight/2, cx = mx, cy = my;
+  addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+  let frame = 0;
+  gsap.ticker.add(() => {
+    cx += (mx - cx) * 0.3; cy += (my - cy) * 0.3;
+    xh.style.transform = `translate(${cx}px,${cy}px)`;
+    co.style.transform = `translate(${cx + 16}px,${cy + 18}px)`;
+    if (!(frame++ % 4)) co.textContent = `X:${String(Math.round(mx)).padStart(4,'0')} Y:${String(Math.round(my)).padStart(4,'0')}`;
+  });
+  document.addEventListener('mouseover', e => { if (e.target.closest('a,button,[data-hover]')) xh.classList.add('hot'); });
+  document.addEventListener('mouseout',  e => { if (e.target.closest('a,button,[data-hover]')) xh.classList.remove('hot'); });
+} else {
+  document.getElementById('xh').style.display = 'none';
+  document.getElementById('xhCo').style.display = 'none';
+}
+
+/* ============ MAGNETIC ============ */
+if (!isTouch) {
+  document.querySelectorAll('[data-magnetic]').forEach(btn => {
+    const xTo = gsap.quickTo(btn, 'x', { duration: .4, ease: 'power3' });
+    const yTo = gsap.quickTo(btn, 'y', { duration: .4, ease: 'power3' });
+    btn.addEventListener('mousemove', e => {
+      const r = btn.getBoundingClientRect();
+      xTo((e.clientX - (r.left + r.width/2)) * .3);
+      yTo((e.clientY - (r.top + r.height/2)) * .3);
+    });
+    btn.addEventListener('mouseleave', () => gsap.to(btn, { x:0, y:0, duration:.8, ease:'elastic.out(1,.4)' }));
+  });
+}
+
+/* ============ HUD: clock + scroll % ============ */
+setInterval(() => {
+  const d = new Date();
+  document.getElementById('hudClock').textContent =
+    [d.getHours(), d.getMinutes(), d.getSeconds()].map(n => String(n).padStart(2,'0')).join(':');
+}, 1000);
+ScrollTrigger.create({
+  start: 0, end: 'max',
+  onUpdate(self) {
+    document.getElementById('hudScroll').textContent = String(Math.round(self.progress * 100)).padStart(3,'0');
+  }
+});
+
+/* ============================================================
+   THREE.JS — PROCEDURAL MIND 001
+   Point-cloud mule + 22 sensory nodes + mind orb + signal arcs
+============================================================ */
+const FILM = { camX:0, camY:.25, camZ:6.6, rotY:.55, rotX:.07, scatter:0, fire:.7, orb:.55, arcs:.5 };
+const COLORWAYS = [
+  { a:'#d7dbe4', b:'#4de3ff', node:'#9aa0ad', fire:'#d8ff3a' },  /* Light Smoke Grey */
+  { a:'#43454e', b:'#8b5cff', node:'#33343c', fire:'#ff4e9d' },  /* Triple Black */
+  { a:'#6f97ff', b:'#37ffd0', node:'#4a6fe0', fire:'#4de3ff' }   /* Flyknit Blue */
+];
+let threeAPI = null;
+
+(function initThree(){
+  if (!window.THREE) return;
+  const canvas = document.getElementById('stage');
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas, alpha:true, antialias:true }); }
+  catch(e){ return; }
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, .1, 100);
+  camera.position.set(0, .25, 6.6);
+  const group = new THREE.Group();
+  scene.add(group);
+
+  /* ----- silhouette (side profile, toe at -x) ----- */
+  const TOP = [[-1.60,.26],[-1.35,.50],[-1.00,.62],[-.55,.72],[-.15,.66],[.15,.55],[.45,.40],[.75,.34],[1.20,.34],[1.55,.26]];
+  const BOT = [[-1.60,.16],[-1.30,.05],[-.80,.02],[0,.05],[.60,.03],[1.10,.04],[1.55,.10]];
+  const WID = [[-1.60,.18],[-1.15,.46],[-.60,.52],[0,.42],[.60,.44],[1.15,.48],[1.55,.22]];
+  function interp(arr, x){
+    if (x <= arr[0][0]) return arr[0][1];
+    for (let i = 1; i < arr.length; i++){
+      if (x <= arr[i][0]){
+        const [x0,y0] = arr[i-1], [x1,y1] = arr[i];
+        const t = (x - x0) / (x1 - x0);
+        return y0 + (y1 - y0) * (t*t*(3-2*t)); /* smoothstep blend */
+      }
+    }
+    return arr[arr.length-1][1];
+  }
+  const bot = x => interp(BOT,x), top = x => interp(TOP,x), wid = x => interp(WID,x);
+  const soleTop = x => bot(x) + .26;
+
+  /* ----- point cloud ----- */
+  const N = 8200;
+  const pos = new Float32Array(N*3), scat = new Float32Array(N*3);
+  const seed = new Float32Array(N), kind = new Float32Array(N);
+  let i = 0, guard = 0;
+  while (i < N && guard++ < N*40) {
+    const isSole = Math.random() < .45;
+    const x = -1.6 + Math.random() * 3.15;
+    const w = wid(x);
+    let y, z;
+    if (isSole) {
+      y = bot(x) + Math.random() * .26;
+      z = (Math.random()*2-1) * w * .95;
+    } else {
+      if (x > .55) continue;                       /* mule: open back */
+      const t0 = soleTop(x), t1 = top(x);
+      if (t1 - t0 < .05) continue;
+      y = t0 + Math.random() * (t1 - t0);
+      const shell = .5 + .5 * Math.pow(Math.random(), .3); /* bias to surface */
+      z = (Math.random() < .5 ? -1 : 1) * w * .92 * shell;
+      /* carve foot opening */
+      if (x > -.05 && y > t1 - .17 && Math.abs(z) < w * .55) continue;
+    }
+    /* superellipse edge rounding */
+    if (Math.abs(z) > w * (1 - .18 * Math.pow(Math.abs(y - .35), 2))) continue;
+    pos[i*3] = x; pos[i*3+1] = y; pos[i*3+2] = z;
+    const r = 6.5 + Math.random() * 5, th = Math.random()*Math.PI*2, ph = Math.acos(2*Math.random()-1);
+    scat[i*3] = r*Math.sin(ph)*Math.cos(th);
+    scat[i*3+1] = r*Math.sin(ph)*Math.sin(th)*.7;
+    scat[i*3+2] = r*Math.cos(ph);
+    seed[i] = Math.random();
+    kind[i] = isSole ? 1 : 0;
+    i++;
+  }
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  pGeo.setAttribute('aScatter', new THREE.BufferAttribute(scat, 3));
+  pGeo.setAttribute('aSeed', new THREE.BufferAttribute(seed, 1));
+  pGeo.setAttribute('aKind', new THREE.BufferAttribute(kind, 1));
+
+  const uniforms = {
+    uTime:{ value:0 }, uScatter:{ value:0 }, uSize:{ value:1.35 },
+    uColorA:{ value:new THREE.Color(COLORWAYS[0].a) },
+    uColorB:{ value:new THREE.Color(COLORWAYS[0].b) }
+  };
+  const pMat = new THREE.ShaderMaterial({
+    uniforms, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    vertexShader: [
+      'attribute vec3 aScatter;','attribute float aSeed;','attribute float aKind;',
+      'uniform float uTime;','uniform float uScatter;','uniform float uSize;',
+      'varying float vSeed;','varying float vKind;',
+      'void main(){',
+      '  vSeed=aSeed; vKind=aKind;',
+      '  vec3 p=mix(position,aScatter,uScatter);',
+      '  p+=0.018*vec3(sin(uTime*.8+aSeed*17.),cos(uTime*.7+aSeed*23.),sin(uTime*.9+aSeed*31.));',
+      '  vec4 mv=modelViewMatrix*vec4(p,1.);',
+      '  gl_PointSize=clamp(uSize*(300./-mv.z)*(.6+.8*aSeed),1.,7.);',
+      '  gl_Position=projectionMatrix*mv;',
+      '}'
+    ].join('\n'),
+    fragmentShader: [
+      'uniform vec3 uColorA;','uniform vec3 uColorB;','uniform float uTime;',
+      'varying float vSeed;','varying float vKind;',
+      'void main(){',
+      '  vec2 uv=gl_PointCoord-.5;',
+      '  float d=length(uv);',
+      '  float alpha=smoothstep(.5,.1,d);',
+      '  float tw=.55+.45*sin(uTime*1.4+vSeed*80.);',
+      '  vec3 col=mix(uColorA,uColorB,vKind*(.65+.35*vSeed));',
+      '  float spark=pow(max(0.,sin(uTime*1.1+vSeed*60.)),30.);',
+      '  col+=spark*.7;',
+      '  gl_FragColor=vec4(col,alpha*(.34+.3*tw+.36*spark));',
+      '}'
+    ].join('\n')
+  });
+  group.add(new THREE.Points(pGeo, pMat));
+
+  /* ----- 22 sensory nodes ----- */
+  const NODE_XZ = [
+    [1.25,0],[1.05,.18],[1.05,-.18],[.85,.30],[.85,-.30],
+    [.45,.26],[.45,-.26],[.20,.34],[.20,-.34],
+    [-.50,.36],[-.50,0],[-.50,-.36],[-.75,.44],[-.75,.15],[-.75,-.15],[-.75,-.44],[-1.00,0],
+    [-1.15,.28],[-1.15,-.28],[-1.30,.15],[-1.30,-.15],[-1.42,0]
+  ];
+  const glowTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64;
+    const g = c.getContext('2d');
+    const rg = g.createRadialGradient(32,32,0,32,32,32);
+    rg.addColorStop(0,'rgba(255,255,255,1)'); rg.addColorStop(.35,'rgba(255,255,255,.4)'); rg.addColorStop(1,'rgba(255,255,255,0)');
+    g.fillStyle = rg; g.fillRect(0,0,64,64);
+    return new THREE.CanvasTexture(c);
+  })();
+  const nodeGeo = new THREE.SphereGeometry(.05, 12, 12);
+  const nodes = NODE_XZ.map(([x,z]) => {
+    const mat = new THREE.MeshBasicMaterial({ color: COLORWAYS[0].node, transparent:true });
+    const m = new THREE.Mesh(nodeGeo, mat);
+    m.position.set(x, bot(x) - .04, z);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, color: COLORWAYS[0].fire, transparent:true, opacity:.0,
+      blending:THREE.AdditiveBlending, depthWrite:false
+    }));
+    sp.scale.setScalar(.4);
+    sp.position.copy(m.position);
+    group.add(m, sp);
+    return { m, sp, x, base:new THREE.Color(COLORWAYS[0].node), fire:new THREE.Color(COLORWAYS[0].fire) };
+  });
+
+  /* ----- mind orb + signal arcs ----- */
+  const orb = new THREE.Mesh(new THREE.SphereGeometry(.09, 16, 16),
+    new THREE.MeshBasicMaterial({ color:'#ffffff', transparent:true, opacity:.9 }));
+  orb.position.set(-.15, 1.6, 0);
+  const orbGlow = new THREE.Sprite(new THREE.SpriteMaterial({
+    map:glowTex, color:COLORWAYS[0].fire, transparent:true, opacity:.5,
+    blending:THREE.AdditiveBlending, depthWrite:false
+  }));
+  orbGlow.scale.setScalar(1.6);
+  orbGlow.position.copy(orb.position);
+  group.add(orb, orbGlow);
+
+  const arcMats = [];
+  [0,3,7,10,14,17,21].forEach(idx => {
+    const n = nodes[idx];
+    const from = new THREE.Vector3(n.x, bot(n.x) - .04, NODE_XZ[idx][1]);
+    const ctrl = new THREE.Vector3((n.x + orb.position.x)/2, .95, NODE_XZ[idx][1]*1.6);
+    const curve = new THREE.QuadraticBezierCurve3(from, ctrl, orb.position.clone());
+    const geo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(26));
+    const mat = new THREE.LineBasicMaterial({ color:COLORWAYS[0].fire, transparent:true, opacity:.14, blending:THREE.AdditiveBlending });
+    group.add(new THREE.Line(geo, mat));
+    arcMats.push(mat);
+  });
+
+  group.rotation.set(FILM.rotX, FILM.rotY, 0);
+  group.scale.setScalar(1.18);
+
+  /* ----- sizing / parallax / loop ----- */
+  function resize(){
+    renderer.setSize(innerWidth, innerHeight, false);
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+  }
+  resize(); addEventListener('resize', resize);
+
+  let px = 0, py = 0;
+  addEventListener('mousemove', e => {
+    px = (e.clientX/innerWidth - .5); py = (e.clientY/innerHeight - .5);
+  });
+
+  const clock = new THREE.Clock();
+  const cA = new THREE.Color(), cB = new THREE.Color();
+  gsap.ticker.add(() => {
+    const t = clock.getElapsedTime();
+    uniforms.uTime.value = t;
+    uniforms.uScatter.value = FILM.scatter;
+
+    group.rotation.y = FILM.rotY + Math.sin(t*.3)*.03;
+    group.rotation.x = FILM.rotX + Math.sin(t*.42)*.015;
+    group.position.y = Math.sin(t*.6)*.05;
+
+    /* heel→toe firing wave */
+    let waveMax = 0;
+    const solid = 1 - FILM.scatter;
+    nodes.forEach(n => {
+      const ph = t*1.5 - (n.x + 1.6)*1.15;
+      const I = Math.pow(Math.max(0, Math.sin(ph)), 14) * FILM.fire;
+      if (I > waveMax) waveMax = I;
+      n.m.scale.setScalar(1 + I*.7);
+      n.m.material.color.copy(n.base).lerp(n.fire, Math.min(1, I*1.2));
+      n.m.material.opacity = solid * (.75 + .25*I);
+      n.sp.material.opacity = solid * I * .8;
+      n.sp.scale.setScalar(.3 + I*.55);
+    });
+    const orbI = FILM.orb * (.65 + .35*Math.sin(t*2.2)) + waveMax*.45;
+    orb.material.opacity = Math.min(1, orbI);
+    orb.scale.setScalar(.8 + orbI*.5);
+    orbGlow.material.opacity = Math.min(1, orbI) * .75;
+    orbGlow.scale.setScalar(1.2 + orbI*1.1);
+    arcMats.forEach((m2, k) => {
+      m2.opacity = solid * FILM.arcs * (.08 + .3*Math.pow(Math.max(0,Math.sin(t*1.5 - k*.5)), 6));
+    });
+
+    camera.position.x = FILM.camX + px*.55;
+    camera.position.y = FILM.camY - py*.4;
+    camera.position.z = FILM.camZ;
+    camera.lookAt(0, .18, 0);
+    renderer.render(scene, camera);
+  });
+
+  /* colorway switching */
+  threeAPI = {
+    setColorway(ci){
+      const cw = COLORWAYS[ci];
+      cA.set(cw.a); cB.set(cw.b);
+      gsap.to(uniforms.uColorA.value, { r:cA.r, g:cA.g, b:cA.b, duration:1, ease:'power2.inOut' });
+      gsap.to(uniforms.uColorB.value, { r:cB.r, g:cB.g, b:cB.b, duration:1, ease:'power2.inOut' });
+      const nb = new THREE.Color(cw.node), nf = new THREE.Color(cw.fire);
+      nodes.forEach(n => {
+        gsap.to(n.base, { r:nb.r, g:nb.g, b:nb.b, duration:1 });
+        gsap.to(n.fire, { r:nf.r, g:nf.g, b:nf.b, duration:1 });
+        n.sp.material.color.set(cw.fire);
+      });
+      orbGlow.material.color.set(cw.fire);
+      arcMats.forEach(m2 => m2.color.set(cw.fire));
+    }
+  };
+})();
+/* ============ HELPERS ============ */
+function countUp(el, target, dur){
+  const pad = parseInt(el.dataset.pad || 0);
+  const o = { v: 0 };
+  gsap.to(o, { v: target, duration: dur || 1.6, ease: 'power2.out',
+    onUpdate(){
+      let s = String(Math.round(o.v));
+      if (pad) s = s.padStart(pad, '0');
+      el.textContent = s;
+    }});
+}
+
+/* ============ LETTERBOX control ============ */
+const lbT = document.getElementById('lbT'), lbB = document.getElementById('lbB');
+const LB = { h: 0 };
+function applyLB(){
+  lbT.style.height = lbB.style.height = LB.h + 'px';
+  document.documentElement.style.setProperty('--lbh', LB.h + 'px');
+  lbT.classList.toggle('open', LB.h > 20);
+  lbB.classList.toggle('open', LB.h > 20);
+}
+
+/* ============ BOOT → TITLE ============ */
+gsap.set('.reveal-hero', { opacity: 0, y: 26 });
+
+const introTl = gsap.timeline({ paused: true });
+introTl
+  .to('#boot', { yPercent: -100, duration: .95, ease: 'power4.inOut' })
+  .set('#boot', { display: 'none' })
+  .add(() => { if (lenis) lenis.start(); document.body.style.overflow = ''; })
+  .to(LB, { h: 38, duration: 1.1, ease: 'power3.inOut', onUpdate: applyLB }, '-=.5')
+  .to('#hero h1 .word', { y: 0, duration: 1.3, ease: 'power4.out', stagger: .16 }, '-=.9')
+  .to('.reveal-hero', { opacity: 1, y: 0, duration: 1, ease: 'power3.out', stagger: .12 }, '-=.85');
+
+if (reduceMotion) {
+  document.getElementById('boot').style.display = 'none';
+  gsap.set(['#hero h1 .word', '.reveal-hero', '.reveal'], { clearProps:'all', opacity: 1, y: 0 });
+  document.querySelectorAll('.term .txt').forEach(el => el.textContent = el.dataset.type);
+} else {
+  document.body.style.overflow = 'hidden';
+  if (lenis) lenis.stop();
+  const logs = document.querySelectorAll('#bootLog div');
+  const bootTl = gsap.timeline();
+  logs.forEach((l, i) => bootTl.to(l, { opacity: 1, duration: .05 }, .3 + i * .34));
+  const cnt = { v: 0 };
+  bootTl.to(cnt, {
+    v: 100, duration: 2, ease: 'power2.inOut',
+    onUpdate(){
+      document.getElementById('bootPct').textContent = String(Math.round(cnt.v)).padStart(2,'0');
+      document.getElementById('bootBar').style.width = cnt.v + '%';
+    }
+  }, .35)
+  .add(() => introTl.play(), '+=.15');
+}
+
+/* letterbox retracts through hero, returns for CALM */
+gsap.to(LB, { h: 0, ease: 'none', onUpdate: applyLB, immediateRender: false,
+  scrollTrigger: { trigger: '#hero', start: '12% top', end: '75% top', scrub: .5 } });
+gsap.fromTo(LB, { h: 0 }, { h: 38, ease: 'none', onUpdate: applyLB, immediateRender: false,
+  scrollTrigger: { trigger: '#calm', start: 'top 85%', end: 'top 30%', scrub: .5 } });
+gsap.to(LB, { h: 0, ease: 'none', onUpdate: applyLB, immediateRender: false,
+  scrollTrigger: { trigger: '#calm', start: 'bottom 70%', end: 'bottom 15%', scrub: .5 } });
+
+/* ============ THE FILM — camera choreography ============ */
+if (!reduceMotion) {
+  const seg = (trigger, vars, s, e) => gsap.to(FILM, Object.assign(vars, {
+    ease: 'none',
+    scrollTrigger: { trigger, start: s || 'top bottom', end: e || 'top 20%', scrub: .8 }
+  }));
+
+  /* dive under the sole */
+  seg('#sensation', { camZ: 4.4, camY: -.55, rotY: 1.15, rotX: -.14, fire: 1.5, arcs: .9 });
+  /* clean side profile for the schematics */
+  seg('#science',   { camZ: 5.6, camY: .2, rotY: Math.PI/2, rotX: .03, fire: .9, orb: .8 });
+  /* shoe drifts stage-right behind the ritual rail */
+  seg('#ritual',    { camX: -1.25, camZ: 6.4, rotY: 2.35, rotX: .1, orb: .5 });
+  /* dissolve into the calm field */
+  seg('#calm',      { scatter: 1, camX: 0, camZ: 7.6, camY: .1, rotY: 3.1, orb: 1.5, fire: .25 }, 'top 90%', 'top 15%');
+  /* reassemble for colorways */
+  seg('#colorways', { scatter: 0, camZ: 5.4, camY: .3, rotY: 4.1, rotX: .1, fire: 1.1, orb: .6 }, 'top 95%', 'top 25%');
+  /* pull back for access */
+  seg('#access',    { camZ: 7.6, rotY: 5.2, rotX: .14, camY: .35 });
+} else {
+  FILM.rotY = .9;
+}
+
+/* ============ CHAPTER RAIL ============ */
+['hero','sensation','science','ritual','calm','colorways','access'].forEach(id => {
+  ScrollTrigger.create({
+    trigger: '#' + id, start: 'top 55%', end: 'bottom 55%',
+    onToggle(self){
+      if (self.isActive) {
+        document.querySelectorAll('#chapterRail .tick').forEach(t =>
+          t.classList.toggle('on', t.dataset.ch === id));
+      }
+    }
+  });
+});
+
+/* ============ MANIFESTO word illumination ============ */
+(function(){
+  const p = document.getElementById('manifesto');
+  const nodes = Array.from(p.childNodes);
+  const frag = document.createDocumentFragment();
+  nodes.forEach(node => {
+    const cls = node.nodeType === 1 ? node.className + ' w' : 'w';
+    (node.textContent || '').split(/\s+/).filter(Boolean).forEach(word => {
+      const s = document.createElement('span');
+      s.className = cls; s.textContent = word;
+      frag.appendChild(s); frag.appendChild(document.createTextNode(' '));
+    });
+  });
+  p.innerHTML = ''; p.appendChild(frag);
+  gsap.to('#manifesto .w', {
+    opacity: 1, stagger: .05, ease: 'none',
+    scrollTrigger: { trigger: '#sensation', start: 'top 70%', end: 'bottom 75%', scrub: .4 }
+  });
+})();
+
+/* ============ GENERIC REVEALS + COUNTERS ============ */
+gsap.utils.toArray('.reveal').forEach(el => {
+  gsap.to(el, { opacity: 1, y: 0, duration: 1.1, ease: 'power3.out',
+    scrollTrigger: { trigger: el, start: 'top 88%' } });
+});
+document.querySelectorAll('[data-count]').forEach(el => {
+  ScrollTrigger.create({ trigger: el, start: 'top 85%', once: true,
+    onEnter: () => countUp(el, parseFloat(el.dataset.count), 1.8) });
+});
+
+/* ============ RITUAL — pinned horizontal ============ */
+gsap.matchMedia().add('(min-width: 901px) and (prefers-reduced-motion: no-preference)', () => {
+  const rail = document.getElementById('rail');
+  const amt = () => rail.scrollWidth - innerWidth;
+  gsap.to(rail, {
+    x: () => -amt(), ease: 'none',
+    scrollTrigger: {
+      trigger: '#pinWrap', start: 'top top', end: () => '+=' + amt(),
+      pin: true, scrub: 1, invalidateOnRefresh: true,
+      onUpdate: s => { document.getElementById('hiwBar').style.transform = 'scaleX(' + s.progress + ')'; }
+    }
+  });
+});
+
+/* ============ CALM poem ============ */
+gsap.to('#calm .poem .li', {
+  y: 0, duration: 1.4, ease: 'power4.out', stagger: .22, paused: false,
+  scrollTrigger: { trigger: '#calm', start: 'top 55%' }
+});
+gsap.to('#calm .after', { opacity: 1, duration: 1.4, delay: .3,
+  scrollTrigger: { trigger: '#calm', start: 'top 45%' } });
+
+/* ============ TERMINAL typing ============ */
+if (!reduceMotion) {
+  ScrollTrigger.create({
+    trigger: '#termBody', start: 'top 80%', once: true,
+    onEnter(){
+      const rows = document.querySelectorAll('#termBody .txt');
+      const tl = gsap.timeline();
+      rows.forEach(el => {
+        const s = el.dataset.type, o = { n: 0 };
+        tl.to(o, { n: s.length, duration: s.length * .035, ease: 'none',
+          onUpdate: () => el.textContent = s.slice(0, Math.round(o.n)) }, '+=.35');
+      });
+      tl.set('#termCaret', { opacity: 1 });
+    }
+  });
+}
+
+/* ============ COLORWAY SWITCHER ============ */
+document.querySelectorAll('.cw').forEach(card => {
+  card.addEventListener('click', e => {
+    if (e.target.closest('.cw-link')) return;   /* let the shop link be a link */
+    document.querySelectorAll('.cw').forEach(c => c.classList.toggle('on', c === card));
+    if (threeAPI) threeAPI.setColorway(parseInt(card.dataset.cw));
+  });
+  card.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); card.click(); }
+  });
+});
+
+/* ============ FOOTER parallax ============ */
+gsap.from('#bigNum', { yPercent: 36, ease: 'none',
+  scrollTrigger: { trigger: 'footer', start: 'top bottom', end: 'bottom bottom', scrub: true } });
+
+/* ============ settle ============ */
+addEventListener('load', () => ScrollTrigger.refresh());
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => ScrollTrigger.refresh());
+
+})();
+</script>
+</body>
+</html>
